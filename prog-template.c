@@ -12,8 +12,15 @@
 #include <math.h>
 #include <ifaddrs.h>
 
-#define PORT 2109
-#define CLIENT_PORT 2000
+/** Declaring parameters as global variables
+ * 
+ * Run this file as ./binary [SERVER_IP] [CONTROL_PORT] [FEEDBACK_PORT] 
+*/
+#define NUM_PARAMETERS 3
+int feedback_port;
+int control_port;
+char* server_ip;
+
 #define MAXLINE 1024 
 #define KH4_GYRO_DEG_S   (66.0/1000.0)
 
@@ -236,7 +243,7 @@ void UDP_Client(int * sockfd, struct sockaddr_in * servaddr, struct sockaddr_in 
 	// Convert IPv4 and IPv6 addresses from text to binary form 
 	// Give the client the server's address to send to
     //if(inet_pton(AF_INET, "192.168.1.142", &(*servaddr).sin_addr)<=0)  
-    if(inet_pton(AF_INET, "192.168.0.103", &(*servaddr).sin_addr)<=0)  
+    if(inet_pton(AF_INET, server_ip, &(*servaddr).sin_addr)<=0)  
     { 
         printf("\nInvalid address/ Address not supported \n"); 
         return; 
@@ -256,12 +263,12 @@ void UDP_Client(int * sockfd, struct sockaddr_in * servaddr, struct sockaddr_in 
 
     // Filling server information 
     servaddr -> sin_family = AF_INET; 
-    servaddr -> sin_port = htons(PORT); 
+    servaddr -> sin_port = htons(feedback_port); 
 
     memset(clientaddr, 0, sizeof(*clientaddr));
     clientaddr -> sin_family = AF_INET;
     (clientaddr -> sin_addr).s_addr = htonl(INADDR_ANY);
-    clientaddr -> sin_port = htons(CLIENT_PORT);
+    clientaddr -> sin_port = htons(control_port);
 
     if (bind(*sockfd, (struct sockaddr *) clientaddr, sizeof(*clientaddr)) < 0) {
         perror("bind");
@@ -406,7 +413,7 @@ void UDPsendSensor(int UDP_sockfd, struct sockaddr_in servaddr, long double T, d
 	// Send the big chunk of sensor data string to server
     printf("Sending...\n");
 	sendto(UDP_sockfd, (const char *)p, len, MSG_CONFIRM, (const struct sockaddr *) &servaddr, sizeof(servaddr)); 
-    printf("Send complete.\n");
+    printf("Send completed.\n");
 
 }
 
@@ -449,6 +456,33 @@ void UDPrecvParseFromServer(int UDP_sockfd, struct sockaddr_in servaddr, double 
 #define FOR_DEV_SPD 850
 
 int main(int argc, char *argv[]) {
+	int i;
+	/* Check arguments */
+	if(argc<NUM_PARAMETERS+1)
+	{
+		printf("Please enter %d arguments in the format [SERVER_IP] [CONTROL_PORT] [FEEDBACK_PORT]  \n",NUM_PARAMETERS);
+		return 0;
+	}
+
+	/* Parse arguments */
+	for(i=0;i<argc;i++)
+	{
+		if(i==1)
+		{
+			server_ip = argv[i];
+		}
+		else if(i==2)
+		{
+			control_port = strtol(argv[i],NULL,10);
+		}
+		else if(i==3)
+		{
+			feedback_port = strtol(argv[i],NULL,10);
+		}
+	}
+
+	printf("[RoboSAR] Received arguments are server ip : %s control port: %d feedback port: %d\n",server_ip,control_port,feedback_port);
+
 
 	/* Initial Template Setup by LinKhepera */
 	int rc;
