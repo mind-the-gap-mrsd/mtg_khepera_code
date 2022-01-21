@@ -14,11 +14,12 @@
 
 /** Declaring parameters as global variables
  * 
- * Run this file as ./binary [SERVER_IP] [CONTROL_PORT] [FEEDBACK_PORT] 
+ * Run this file as ./binary [SERVER_IP] [CONTROL_PORT] [FEEDBACK_PORT] [FEEDBACK_FREQUENCY]
 */
-#define NUM_PARAMETERS 3
+#define NUM_PARAMETERS 4
 int feedback_port;
 int control_port;
+int feedback_frequency;
 char* server_ip;
 
 #define MAXLINE 1024 
@@ -460,7 +461,7 @@ int main(int argc, char *argv[]) {
 	/* Check arguments */
 	if(argc<NUM_PARAMETERS+1)
 	{
-		printf("Please enter %d arguments in the format [SERVER_IP] [CONTROL_PORT] [FEEDBACK_PORT]  \n",NUM_PARAMETERS);
+		printf("Please enter %d arguments in the format [SERVER_IP] [CONTROL_PORT] [FEEDBACK_PORT] [FEEDBACK_FREQUENCY] \n",NUM_PARAMETERS);
 		return 0;
 	}
 
@@ -478,6 +479,10 @@ int main(int argc, char *argv[]) {
 		else if(i==3)
 		{
 			feedback_port = strtol(argv[i],NULL,10);
+		}
+		else if(i==3)
+		{
+			feedback_frequency = strtol(argv[i],NULL,10);
 		}
 	}
 
