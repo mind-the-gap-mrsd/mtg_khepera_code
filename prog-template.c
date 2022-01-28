@@ -16,6 +16,7 @@
 #define CLIENT_PORT 2000
 #define MAXLINE 1024 
 #define KH4_GYRO_DEG_S   (66.0/1000.0)
+#define LRF_DEVICE "/dev/ttyACM0" 
 
 static knet_dev_t * dsPic;
 static int quitReq = 0; // quit variable for loop
@@ -211,6 +212,19 @@ void getSPD(unsigned int * spdL, unsigned int * spdR) {
 	//printf("\n");
 }
 
+/*-----------Get LRF readings----------*/
+void getLRF(int LRF_DeviceHandle, long * LRF_Buffer) {
+    // Get distance measurements
+    int result = kb_lrf_GetDistances(LRF_DeviceHandle);
+    if(result < 0){
+        // Failure
+        printf("\nERROR: Could not read LRF!\n");
+        return;
+    }
+    // Copy data from global to local buffer
+    memcpy(LRF_Buffer, kb_lrf_DistanceData, sizeof(long)*LRF_DATA_NB);
+}
+
 
 
 /*-------------------Establish UDP socket communication as client-------------------*/
@@ -271,8 +285,8 @@ void UDP_Client(int * sockfd, struct sockaddr_in * servaddr, struct sockaddr_in 
 
 
 /*------------Sending sensor values to UDP server in one big string-------------*/
-void UDPsendSensor(int UDP_sockfd, struct sockaddr_in servaddr, long double T, double acc_X, double acc_Y, double acc_Z, double gyro_X, double gyro_Y, double gyro_Z, unsigned int posL, unsigned int posR, unsigned int spdL, unsigned int spdR, short usValues[], int irValues[]) {
-	char text[4096];
+void UDPsendSensor(int UDP_sockfd, struct sockaddr_in servaddr, long double T, double acc_X, double acc_Y, double acc_Z, double gyro_X, double gyro_Y, double gyro_Z, unsigned int posL, unsigned int posR, unsigned int spdL, unsigned int spdR, short usValues[], int irValues[], long LRFValues[]) {
+	char text[25000];
 
 	// Separate sensor readings with "tags"
 	// EX: "-----AY2.5AY-------"
@@ -397,6 +411,16 @@ void UDPsendSensor(int UDP_sockfd, struct sockaddr_in servaddr, long double T, d
 	sprintf(text + strlen(text), "IL");
 	sprintf(text + strlen(text), "%d", irValues[11]);
 	sprintf(text + strlen(text), "IL\n");
+
+    // LRF
+    int i;
+    for(i=0;i<LRF_DATA_NB;i++){
+        sprintf(text + strlen(text), "LRF%3d - %4ldmm\n", i, LRFValues[i]);
+    }
+
+    printf("%s\n",text);
+
+
 	
 
 	// Have char pointer p point to the whole text, send it to the client
@@ -478,6 +502,18 @@ int main(int argc, char *argv[]) {
   
   	// Reset Encoders
   	kh4_ResetEncoders(dsPic);
+
+    // Get handle for Laser Rangefinder (LRF)
+    int LRF_DeviceHandle;
+    // Power LRF
+    kb_lrf_Power_On();
+
+    // Initialize LRF
+    if ((LRF_DeviceHandle = kb_lrf_Init(LRF_DEVICE))<0)
+    {
+        printf("\nERROR: port %s could not initialise LRF!\n");
+        return -2;
+    }
   
 
   	// Establish socket communication
@@ -497,6 +533,7 @@ int main(int argc, char *argv[]) {
     char ir_Buffer[256]; // Buffer for infrared sensors
     int irValues[12]; // Values of the 12 IR sensor readings from sensor No.1 - 12
     char gyro_Buffer[100]; // Buffer for Gyroscope
+    long LRF_Buffer[LRF_DATA_NB]; // Buffer for LIDAR readings
 
     double acc_X, acc_Y, acc_Z;
     double gyro_X, gyro_Y, gyro_Z;
@@ -523,8 +560,6 @@ int main(int argc, char *argv[]) {
 
 
     while(quitReq == 0) {
-				
-
 		// Receive linear and angular velocity commands from the server
 		UDPrecvParseFromServer(UDP_sockfd, servaddr, &W, &V);
 
@@ -570,8 +605,11 @@ int main(int argc, char *argv[]) {
 		// Receive encoder speed readings
 		getSPD(&spdL, &spdR);
 
+        // Receive LRF readings
+        getLRF(LRF_DeviceHandle, LRF_Buffer);
+
 		//TCPsendSensor(new_socket, T, acc_X, acc_Y, acc_Z, gyro_X, gyro_Y, gyro_Z, posL, posR, spdL, spdR, usValues, irValues);
-		UDPsendSensor(UDP_sockfd, servaddr, T, acc_X, acc_Y, acc_Z, gyro_X, gyro_Y, gyro_Z, posL, posR, spdL, spdR, usValues, irValues);
+		UDPsendSensor(UDP_sockfd, servaddr, T, acc_X, acc_Y, acc_Z, gyro_X, gyro_Y, gyro_Z, posL, posR, spdL, spdR, usValues, irValues, LRF_Buffer);
 		printf("Sleeping...\n");
 		usleep(105000); // wait 105 ms, time for gyro to read fresh data
   	}	
@@ -579,6 +617,9 @@ int main(int argc, char *argv[]) {
 
   	// Close UDP scoket
   	close(UDP_sockfd);
+
+    // Close the lrf device
+    kb_lrf_Close(LRF_DeviceHandle);
 
   	// switch to normal key input mode
   	// This is important, if we don't switch the term mode back to zero
