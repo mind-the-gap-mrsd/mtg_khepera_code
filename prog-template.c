@@ -469,7 +469,6 @@ void UDPrecvParseFromServer(int UDP_sockfd, struct sockaddr_in servaddr, double 
 	*W = recv[0];
 	*V = recv[1];
 
-	printf("Received velocities %f %f\n",*W,*V);
 	// Clear buffer
 	memset(sock_buffer, 0, sizeof sock_buffer);
 }
@@ -586,7 +585,6 @@ int main(int argc, char *argv[]) {
 
 		//----------------- All sensor readings ------------------//
 
-		/*
 		// Receive accelerometer readings
 		getAcc(acc_Buffer, &acc_X, &acc_Y, &acc_Z);
 
@@ -607,9 +605,9 @@ int main(int argc, char *argv[]) {
 
 		//TCPsendSensor(new_socket, T, acc_X, acc_Y, acc_Z, gyro_X, gyro_Y, gyro_Z, posL, posR, spdL, spdR, usValues, irValues);
 		UDPsendSensor(UDP_sockfd, servaddr, T, acc_X, acc_Y, acc_Z, gyro_X, gyro_Y, gyro_Z, posL, posR, spdL, spdR, usValues, irValues);
-		*/
+		
 		printf("Sleeping...\n");
-		//usleep(105000); // wait 105 ms, time for gyro to read fresh data
+		usleep(105000); // wait 105 ms, time for gyro to read fresh data
   	}	
 
 
