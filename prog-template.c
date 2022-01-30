@@ -14,6 +14,8 @@
 
 #define PORT 2109
 #define CLIENT_PORT 2000
+
+#define MAX_WHEEL_SPEED_MM_S 810
 #define MAXLINE 1024 
 #define KH4_GYRO_DEG_S   (66.0/1000.0)
 
@@ -75,12 +77,43 @@ int v2p(double v) {
 	return (int)v / 0.678181;
 }
 
+int getSign(double x) {
+
+	return x<0 ? -1 : 1;
+}
+
 
 /*---------Angular and linear velocity control of the robot----------*/
+/** Ang_Vel_Control
+ * @brief : Convert bot centre velocities from mm/s to wheel velocities in encoder tick/s
+
+ * @param : double ang - rad/s
+ * @param : double vel - mm/s
+
+
+int kh4_set_speed 	( 	int  	left,
+		int  	right,
+		knet_dev_t *  	hDev 
+	) 		
+Parameters
+    left	left motor speed (units: encoder)
+    right	right motor speed (units: encoder)
+    hDev	is a handle to an openned knet socket (Khepera4:dsPic).
+*/
 void Ang_Vel_Control(double ang, double vel) {
 	ang = -ang;
-	int PL = (105.4 * ang + 2 * vel) / (2 * 0.678181);
-	int PR = (2 * vel - 105.4 * ang) / (2 * 0.678181);
+
+	double wheel_base = 105.4;
+	double left_wheel_speed = (2*vel + wheel_base*ang ) / 2;
+	double right_wheel_speed = (2*vel - wheel_base*ang) / 2;
+
+	// put limits
+	left_wheel_speed = fabs(left_wheel_speed) > MAX_WHEEL_SPEED_MM_S ? MAX_WHEEL_SPEED_MM_S*getSign(left_wheel_speed) : left_wheel_speed;
+	left_wheel_speed = fabs(right_wheel_speed) > MAX_WHEEL_SPEED_MM_S ? MAX_WHEEL_SPEED_MM_S*getSign(right_wheel_speed) : right_wheel_speed;
+
+
+	int PL = v2p(left_wheel_speed);
+	int PR = v2p(right_wheel_speed);
 	//printf("\nL encoder input: %d", PL);
 	//printf("\nR encoder input: %d", PR);
 	//printf("\n");
@@ -436,6 +469,7 @@ void UDPrecvParseFromServer(int UDP_sockfd, struct sockaddr_in servaddr, double 
 	*W = recv[0];
 	*V = recv[1];
 
+	printf("Received velocities %f %f\n",*W,*V);
 	// Clear buffer
 	memset(sock_buffer, 0, sizeof sock_buffer);
 }
@@ -552,6 +586,7 @@ int main(int argc, char *argv[]) {
 
 		//----------------- All sensor readings ------------------//
 
+		/*
 		// Receive accelerometer readings
 		getAcc(acc_Buffer, &acc_X, &acc_Y, &acc_Z);
 
@@ -572,8 +607,9 @@ int main(int argc, char *argv[]) {
 
 		//TCPsendSensor(new_socket, T, acc_X, acc_Y, acc_Z, gyro_X, gyro_Y, gyro_Z, posL, posR, spdL, spdR, usValues, irValues);
 		UDPsendSensor(UDP_sockfd, servaddr, T, acc_X, acc_Y, acc_Z, gyro_X, gyro_Y, gyro_Z, posL, posR, spdL, spdR, usValues, irValues);
+		*/
 		printf("Sleeping...\n");
-		usleep(105000); // wait 105 ms, time for gyro to read fresh data
+		//usleep(105000); // wait 105 ms, time for gyro to read fresh data
   	}	
 
 
