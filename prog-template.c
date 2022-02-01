@@ -511,8 +511,7 @@ int main(int argc, char *argv[]) {
     // Initialize LRF
     if ((LRF_DeviceHandle = kb_lrf_Init(LRF_DEVICE))<0)
     {
-        printf("\nERROR: port %s could not initialise LRF!\n");
-        return -2;
+        printf("\nERROR: port %s could not initialise LRF!\n",LRF_DEVICE);
     }
   
 
@@ -605,8 +604,11 @@ int main(int argc, char *argv[]) {
 		// Receive encoder speed readings
 		getSPD(&spdL, &spdR);
 
-        // Receive LRF readings
-        getLRF(LRF_DeviceHandle, LRF_Buffer);
+        // Receive LRF readings if available
+        if(!(LRF_DeviceHandle < 0))
+            getLRF(LRF_DeviceHandle, LRF_Buffer);
+        else
+            memset(LRF_Buffer, 0, sizeof(long)*LRF_DATA_NB);
 
 		//TCPsendSensor(new_socket, T, acc_X, acc_Y, acc_Z, gyro_X, gyro_Y, gyro_Z, posL, posR, spdL, spdR, usValues, irValues);
 		UDPsendSensor(UDP_sockfd, servaddr, T, acc_X, acc_Y, acc_Z, gyro_X, gyro_Y, gyro_Z, posL, posR, spdL, spdR, usValues, irValues, LRF_Buffer);
