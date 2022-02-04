@@ -285,6 +285,7 @@ void UDP_Client(int * sockfd, struct sockaddr_in * servaddr, struct sockaddr_in 
 void UDPsendSensor(int UDP_sockfd, struct sockaddr_in servaddr, long double T, double acc_X, double acc_Y, double acc_Z, double gyro_X, double gyro_Y, double gyro_Z, unsigned int posL, unsigned int posR, unsigned int spdL, unsigned int spdR, short usValues[], int irValues[]) {
 	char text[4096];
 	uint8_t proto_buffer[4096];
+	static unsigned long int seq_id = 0;
 
 	// Separate sensor readings with "tags"
 	// EX: "-----AY2.5AY-------"
@@ -300,6 +301,10 @@ void UDPsendSensor(int UDP_sockfd, struct sockaddr_in servaddr, long double T, d
 	sprintf(text + strlen(text), "%2.4f", T);
 	sprintf(text + strlen(text), "T\n");
 	proto_data_all.timestamp_ns = 0; // TODO @indraneel later
+
+	// seq id
+	proto_data_all.seq_id = seq_id;
+	seq_id++;
 
 	// Accelerometer
 	robosar_fms_Accelerometer proto_accel_data;
