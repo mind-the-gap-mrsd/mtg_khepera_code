@@ -14,6 +14,7 @@
 #include "robosar.pb.h"
 #include <pb_encode.h>
 
+
 /** Declaring parameters as global variables
  * 
  * Run this file as ./binary [SERVER_IP] [CONTROL_PORT] [FEEDBACK_PORT] [FEEDBACK_FREQUENCY_HZ] [CONTROL_TIMEOUT_MS]
@@ -25,8 +26,10 @@ int feedback_frequency;
 int control_timeout;
 char* server_ip;
 
+#define MAX_WHEEL_SPEED_MM_S 810
 #define MAXLINE 1024 
 #define KH4_GYRO_DEG_S   (66.0/1000.0)
+#define LRF_DEVICE "/dev/ttyACM0" 
 
 static knet_dev_t * dsPic;
 static int quitReq = 0; // quit variable for loop
@@ -86,12 +89,43 @@ int v2p(double v) {
 	return (int)v / 0.678181;
 }
 
+int getSign(double x) {
+
+	return x<0 ? -1 : 1;
+}
+
 
 /*---------Angular and linear velocity control of the robot----------*/
+/** Ang_Vel_Control
+ * @brief : Convert bot centre velocities from mm/s to wheel velocities in encoder tick/s
+
+ * @param : double ang - rad/s
+ * @param : double vel - mm/s
+
+
+int kh4_set_speed 	( 	int  	left,
+		int  	right,
+		knet_dev_t *  	hDev 
+	) 		
+Parameters
+    left	left motor speed (units: encoder)
+    right	right motor speed (units: encoder)
+    hDev	is a handle to an openned knet socket (Khepera4:dsPic).
+*/
 void Ang_Vel_Control(double ang, double vel) {
 	ang = -ang;
-	int PL = (105.4 * ang + 2 * vel) / (2 * 0.678181);
-	int PR = (2 * vel - 105.4 * ang) / (2 * 0.678181);
+
+	double wheel_base = 105.4;
+	double left_wheel_speed = (2*vel + wheel_base*ang ) / 2;
+	double right_wheel_speed = (2*vel - wheel_base*ang) / 2;
+
+	// put limits
+	left_wheel_speed = fabs(left_wheel_speed) > MAX_WHEEL_SPEED_MM_S ? MAX_WHEEL_SPEED_MM_S*getSign(left_wheel_speed) : left_wheel_speed;
+	left_wheel_speed = fabs(right_wheel_speed) > MAX_WHEEL_SPEED_MM_S ? MAX_WHEEL_SPEED_MM_S*getSign(right_wheel_speed) : right_wheel_speed;
+
+
+	int PL = v2p(left_wheel_speed);
+	int PR = v2p(right_wheel_speed);
 	//printf("\nL encoder input: %d", PL);
 	//printf("\nR encoder input: %d", PR);
 	//printf("\n");
@@ -222,6 +256,19 @@ void getSPD(unsigned int * spdL, unsigned int * spdR) {
 	//printf("\n");
 }
 
+/*-----------Get LRF readings----------*/
+void getLRF(int LRF_DeviceHandle, long * LRF_Buffer) {
+    // Get distance measurements
+    int result = kb_lrf_GetDistances(LRF_DeviceHandle);
+    if(result < 0){
+        // Failure
+        printf("\nERROR: Could not read LRF!\n");
+        return;
+    }
+    // Copy data from global to local buffer
+    memcpy(LRF_Buffer, kb_lrf_DistanceData, sizeof(long)*LRF_DATA_NB);
+}
+
 
 
 /*-------------------Establish UDP socket communication as client-------------------*/
@@ -282,9 +329,9 @@ void UDP_Client(int * sockfd, struct sockaddr_in * servaddr, struct sockaddr_in 
 
 
 /*------------Sending sensor values to UDP server in one big string-------------*/
-void UDPsendSensor(int UDP_sockfd, struct sockaddr_in servaddr, long double T, double acc_X, double acc_Y, double acc_Z, double gyro_X, double gyro_Y, double gyro_Z, unsigned int posL, unsigned int posR, unsigned int spdL, unsigned int spdR, short usValues[], int irValues[]) {
-	char text[4096];
-	uint8_t proto_buffer[4096];
+void UDPsendSensor(int UDP_sockfd, struct sockaddr_in servaddr, long double T, double acc_X, double acc_Y, double acc_Z, double gyro_X, double gyro_Y, double gyro_Z, unsigned int posL, unsigned int posR, unsigned int spdL, unsigned int spdR, short usValues[], int irValues[], long LRFValues[]) {
+	char text[25000];
+	uint8_t proto_buffer[25000];
 	static unsigned long int seq_id = 0;
 
 	// Separate sensor readings with "tags"
@@ -360,6 +407,16 @@ void UDPsendSensor(int UDP_sockfd, struct sockaddr_in servaddr, long double T, d
 	bool status = pb_encode(&stream, robosar_fms_SensorData_fields, &proto_data_all);
 	size_t proto_msg_length = stream.bytes_written;
 
+    // LRF
+    int i;
+    for(i=0;i<LRF_DATA_NB;i++){
+        sprintf(text + strlen(text), "LRF%3d - %4ldmm\n", i, LRFValues[i]);
+    }
+
+    printf("%s\n",text);
+
+
+	
 
 	// Have char pointer p point to the whole text, send it to the client
 	char *p = text;
@@ -483,6 +540,17 @@ int main(int argc, char *argv[]) {
   
   	// Reset Encoders
   	kh4_ResetEncoders(dsPic);
+
+    // Get handle for Laser Rangefinder (LRF)
+    int LRF_DeviceHandle;
+    // Power LRF
+    kb_lrf_Power_On();
+
+    // Initialize LRF
+    if ((LRF_DeviceHandle = kb_lrf_Init(LRF_DEVICE))<0)
+    {
+        printf("\nERROR: port %s could not initialise LRF!\n",LRF_DEVICE);
+    }
   
 
   	// Establish socket communication
@@ -502,6 +570,7 @@ int main(int argc, char *argv[]) {
     char ir_Buffer[256]; // Buffer for infrared sensors
     int irValues[12]; // Values of the 12 IR sensor readings from sensor No.1 - 12
     char gyro_Buffer[100]; // Buffer for Gyroscope
+    long LRF_Buffer[LRF_DATA_NB]; // Buffer for LIDAR readings
 
     double acc_X, acc_Y, acc_Z;
     double gyro_X, gyro_Y, gyro_Z;
@@ -528,8 +597,6 @@ int main(int argc, char *argv[]) {
 
 
     while(quitReq == 0) {
-				
-
 		// Receive linear and angular velocity commands from the server
 		UDPrecvParseFromServer(UDP_sockfd, servaddr, &W, &V);
 
@@ -575,8 +642,14 @@ int main(int argc, char *argv[]) {
 		// Receive encoder speed readings
 		getSPD(&spdL, &spdR);
 
+        // Receive LRF readings if available
+        if(!(LRF_DeviceHandle < 0))
+            getLRF(LRF_DeviceHandle, LRF_Buffer);
+        else
+            memset(LRF_Buffer, 0, sizeof(long)*LRF_DATA_NB);
+
 		//TCPsendSensor(new_socket, T, acc_X, acc_Y, acc_Z, gyro_X, gyro_Y, gyro_Z, posL, posR, spdL, spdR, usValues, irValues);
-		UDPsendSensor(UDP_sockfd, servaddr, T, acc_X, acc_Y, acc_Z, gyro_X, gyro_Y, gyro_Z, posL, posR, spdL, spdR, usValues, irValues);
+		UDPsendSensor(UDP_sockfd, servaddr, T, acc_X, acc_Y, acc_Z, gyro_X, gyro_Y, gyro_Z, posL, posR, spdL, spdR, usValues, irValues, LRF_Buffer);
 		printf("Sleeping...\n");
 		usleep(105000); // wait 105 ms, time for gyro to read fresh data
   	}	
@@ -584,6 +657,9 @@ int main(int argc, char *argv[]) {
 
   	// Close UDP scoket
   	close(UDP_sockfd);
+
+    // Close the lrf device
+    kb_lrf_Close(LRF_DeviceHandle);
 
   	// switch to normal key input mode
   	// This is important, if we don't switch the term mode back to zero
