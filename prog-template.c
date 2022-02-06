@@ -130,6 +130,21 @@ void Ang_Vel_Control(double ang, double vel) {
 	kh4_set_speed(PL, PR, dsPic);
 }
 
+float accel_convert(char byte_high, char byte_low){
+    // Converts 2's compliment from Khepera IMU accel to m/s^2
+    // Data is 12 bits, split over 16 bits for +/- 2g range
+    // Byte high all has data
+    // Byte low has 4 lowest bits set to 0
+    int32_t val = -(byte_high & (0x80));
+    val += byte_high & 0x7F;
+    val <<= 8;
+    val += byte_low;
+    val >>= 4;
+    float acceleration = (float)val * 2.0/(2048); // in g's
+    acceleration *= 9.8066; // convert to m/s^2
+    return acceleration;
+}
+
 /*-----------Get Acceleration----------*/
 void getAcc(char * acc_Buffer, double * acc_X, double * acc_Y, double * acc_Z) {
 	kh4_measure_acc((char *)acc_Buffer, dsPic);
@@ -137,13 +152,14 @@ void getAcc(char * acc_Buffer, double * acc_X, double * acc_Y, double * acc_Z) {
 	double dmean = 0;
 	double dval = 0;
 	int i;
+    char byte_high, byte_low;
+    int32_t accel_bytes;
 
 	// Acceleration on X axis
 	//printf("\nAcceleration sensor on X axis: ");
-
 	for (i = 0; i < 10; i++) {
-		dval = ((short)(acc_Buffer[i * 2] | acc_Buffer[ i * 2 + 1] << 8) >> 4) / 1000.0;
-		dmean += dval;
+        dval=accel_convert(acc_Buffer[i * 2 + 1], acc_Buffer[i * 2]);
+        dmean += dval;
 	}
 
 	*acc_X = dmean / 10.0;
@@ -155,7 +171,7 @@ void getAcc(char * acc_Buffer, double * acc_X, double * acc_Y, double * acc_Z) {
 	dmean = 0;
 
 	for (i = 10; i < 20; i++) {
-		dval = ((short)(acc_Buffer[i * 2] | acc_Buffer[i * 2 + 1] << 8) >> 4) / 1000.0;
+		dval=accel_convert(acc_Buffer[i * 2 + 1], acc_Buffer[i * 2]);
 		dmean += dval;
 	}
 
@@ -168,8 +184,8 @@ void getAcc(char * acc_Buffer, double * acc_X, double * acc_Y, double * acc_Z) {
 	dmean = 0;
 
 	for (i = 20; i < 30; i++) {
-		dval=((short)(acc_Buffer[i * 2] | acc_Buffer[i * 2 + 1] << 8) >> 4) / 1000.0;
-		dmean += dval;
+        dval=accel_convert(acc_Buffer[i * 2 + 1], acc_Buffer[i * 2]);
+        dmean += dval;
 	}
 
 	*acc_Z = dmean / 10.0;
