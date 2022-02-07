@@ -403,20 +403,19 @@ void UDPsendSensor(int UDP_sockfd, struct sockaddr_in servaddr, long double T, d
     proto_ir_data.sensor_l = irValues[11];
 	proto_data_all.ir_data = proto_ir_data;
 
+	 // LRF sensor
+	robosar_fms_LaserScanner proto_lrf_data;
+    int i;
+    for(i=0;i<LRF_DATA_NB;i++){
+		proto_lrf_data.values[i] = LRFValues[i];
+    }
+	proto_lrf_data.values_count = LRF_DATA_NB;
+	proto_data_all.lrf_data = proto_lrf_data;
+
 	pb_ostream_t stream = pb_ostream_from_buffer(proto_buffer, sizeof(proto_buffer));
 	bool status = pb_encode(&stream, robosar_fms_SensorData_fields, &proto_data_all);
 	size_t proto_msg_length = stream.bytes_written;
 
-    // LRF
-    int i;
-    for(i=0;i<LRF_DATA_NB;i++){
-        sprintf(text + strlen(text), "LRF%3d - %4ldmm\n", i, LRFValues[i]);
-    }
-
-    printf("%s\n",text);
-
-
-	
 
 	// Have char pointer p point to the whole text, send it to the client
 	char *p = text;
