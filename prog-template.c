@@ -121,7 +121,7 @@ void Ang_Vel_Control(double ang, double vel) {
 
 	// put limits
 	left_wheel_speed = fabs(left_wheel_speed) > MAX_WHEEL_SPEED_MM_S ? MAX_WHEEL_SPEED_MM_S*getSign(left_wheel_speed) : left_wheel_speed;
-	left_wheel_speed = fabs(right_wheel_speed) > MAX_WHEEL_SPEED_MM_S ? MAX_WHEEL_SPEED_MM_S*getSign(right_wheel_speed) : right_wheel_speed;
+	right_wheel_speed = fabs(right_wheel_speed) > MAX_WHEEL_SPEED_MM_S ? MAX_WHEEL_SPEED_MM_S*getSign(right_wheel_speed) : right_wheel_speed;
 
 
 	int PL = v2p(left_wheel_speed);
@@ -456,7 +456,7 @@ void UDPsendSensor(int UDP_sockfd, struct sockaddr_in servaddr, long double T, d
 
 /*---------------- Receiving and parsing from sever -----------------*/
 
-void UDPrecvParseFromServer(int UDP_sockfd, struct sockaddr_in servaddr, double * W, double * V) {
+void UDPrecvParseFromServer(int UDP_sockfd, struct sockaddr_in servaddr) {
 	char sock_buffer[1024];
 	char *pch;
 	double recv[2];
@@ -464,22 +464,29 @@ void UDPrecvParseFromServer(int UDP_sockfd, struct sockaddr_in servaddr, double 
 	int n, len;
 
 	// Receive data string from server 
-	n = recvfrom(UDP_sockfd, (char *)sock_buffer, MAXLINE, MSG_WAITALL, (struct sockaddr *) &servaddr, &len); 
+	n = recvfrom(UDP_sockfd, (char *)sock_buffer, MAXLINE, MSG_DONTWAIT, (struct sockaddr *) &servaddr, &len); 
 
 	// Parsing the string
 	// The angular velocity (W) and linear velocity (V) are sent in the same string, separated by an 'x'
-	pch = strtok (sock_buffer,"x");
-	while (pch != NULL)
+	if(n>0)
 	{
-	    recv[i] = atof(pch);
-	    i++;
-	    pch = strtok (NULL, "x");
-	}
-	*W = recv[0];
-	*V = recv[1];
+		pch = strtok (sock_buffer,"x");
+		while (pch != NULL)
+		{
+			recv[i] = atof(pch);
+			i++;
+			pch = strtok (NULL, "x");
+		}
+		double W = recv[0];
+		double V = recv[1];
 
-	// Clear buffer
-	memset(sock_buffer, 0, sizeof sock_buffer);
+		// Clear buffer
+		memset(sock_buffer, 0, sizeof sock_buffer);
+
+		printf("Received %f %f \n",W,V);
+		// Control the motors
+		Ang_Vel_Control(W, V);
+	}
 }
 
 
@@ -492,6 +499,7 @@ void UDPrecvParseFromServer(int UDP_sockfd, struct sockaddr_in servaddr, double 
 
 int main(int argc, char *argv[]) {
 	int i;
+	long int main_loop_delay;
 	/* Check arguments */
 	if(argc<NUM_PARAMETERS+1)
 	{
@@ -517,6 +525,9 @@ int main(int argc, char *argv[]) {
 		else if(i==4)
 		{
 			feedback_frequency = strtol(argv[i],NULL,10);
+			main_loop_delay = (int)(1e6*(1.0/(double)(feedback_frequency)));
+			// Put lower limit on main loop delay
+			main_loop_delay = main_loop_delay<100000 ? 100000 : main_loop_delay;
 		}
 		else if(i==5)
 		{
@@ -525,6 +536,7 @@ int main(int argc, char *argv[]) {
 	}
 
 	printf("[RoboSAR] Received arguments are server ip : %s control port: %d feedback port: %d\n",server_ip,control_port,feedback_port);
+	printf("Main loop delay is set to %ld\n",main_loop_delay);
 
 
 	/* Initial Template Setup by LinKhepera */
@@ -613,15 +625,12 @@ int main(int argc, char *argv[]) {
 
     while(quitReq == 0) {
 		// Receive linear and angular velocity commands from the server
-		UDPrecvParseFromServer(UDP_sockfd, servaddr, &W, &V);
+		UDPrecvParseFromServer(UDP_sockfd, servaddr);
 
 		// Get khepera time stamp
 		gettimeofday(&endt,0x0);
 		long long t = timeval_diff(NULL, &endt, &startt);
 		T = t / 1000000.0;
-
-		// Control the motors
-		Ang_Vel_Control(W, V);
 		
 		/*-------------------------------Useful Functions-----------------------------*/
 		
@@ -665,8 +674,8 @@ int main(int argc, char *argv[]) {
 
 		//TCPsendSensor(new_socket, T, acc_X, acc_Y, acc_Z, gyro_X, gyro_Y, gyro_Z, posL, posR, spdL, spdR, usValues, irValues);
 		UDPsendSensor(UDP_sockfd, servaddr, T, acc_X, acc_Y, acc_Z, gyro_X, gyro_Y, gyro_Z, posL, posR, spdL, spdR, usValues, irValues, LRF_Buffer);
-		printf("Sleeping...\n");
-		usleep(105000); // wait 105 ms, time for gyro to read fresh data
+		//printf("Sleeping...\n");
+		usleep(main_loop_delay); // wait 105 ms, time for gyro to read fresh data
   	}	
 
 
