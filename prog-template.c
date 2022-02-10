@@ -445,9 +445,9 @@ void UDPsendSensor(int UDP_sockfd, struct sockaddr_in servaddr, long double T, d
 	}
 	else 
 	{
-		printf("Sending... %ld\n",proto_msg_length);
+		//printf("Sending... %ld\n",proto_msg_length);
 		sendto(UDP_sockfd, proto_buffer, proto_msg_length, MSG_CONFIRM, (const struct sockaddr *) &servaddr, sizeof(servaddr)); 
-		printf("Send completed.\n");
+		//printf("Send completed.\n");
 	}
 
 }
@@ -483,7 +483,6 @@ void UDPrecvParseFromServer(int UDP_sockfd, struct sockaddr_in servaddr) {
 		// Clear buffer
 		memset(sock_buffer, 0, sizeof sock_buffer);
 
-		printf("Received %f %f \n",W,V);
 		// Control the motors
 		Ang_Vel_Control(W, V);
 	}
