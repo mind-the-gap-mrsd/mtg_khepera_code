@@ -609,72 +609,55 @@ int main(int argc, char *argv[]) {
     double V = 0;
 
     // Variables for time stamps
-    struct timeval startt,endt,endt2;
-  	long double T = 0.0;
+    struct timeval cur_time, old_time;
+    long long elapsed_time_us;
 
     // Get the starting time stamp
-    gettimeofday(&startt,0x0);
-    
-
-    // Variables for the time grid method by Jaskaran!
-    long double freq = 20.0; // The intended communication frequecy
-    int cnt = 0; // The current grid
-    long double delta = 0.01; // The max tolerance of the difference between acceptable time stamp and the grid
+    gettimeofday(&cur_time,0x0);
+    old_time = cur_time;
 
 
     while(quitReq == 0) {
 		// Receive linear and angular velocity commands from the server
 		UDPrecvParseFromServer(UDP_sockfd, servaddr);
 
-		// Get khepera time stamp
-		gettimeofday(&endt,0x0);
-		long long t = timeval_diff(NULL, &endt, &startt);
-		T = t / 1000000.0;
-		
-		/*-------------------------------Useful Functions-----------------------------*/
-		
-		//----------------- Action received by Python ------------------//
-
-		// Receiving W and V from server 
-		//TCPrecvParseFromServer(new_socket, &W, &V);
-		//UDPrecvParseFromServer(UDP_sockfd, servaddr, &W, &V);
-		//printf("Input W: %f\n", W);
-		//printf("Input V: %f\n", V);
-		
-		// Control Khepera with angular velocity W and linear velocity V
-		//Ang_Vel_Control(W, V);
+		// Update time
+		gettimeofday(&cur_time,0x0);
+		elapsed_time_us = timeval_diff(NULL, &cur_time, &old_time);
 
 
-		//----------------- All sensor readings ------------------//
+		if(elapsed_time_us > main_loop_delay){
+            old_time = cur_time;
+            
+            //----------------- All sensor readings ------------------//
+    		// Receive accelerometer readings
+    		getAcc(acc_Buffer, &acc_X, &acc_Y, &acc_Z);
 
-		// Receive accelerometer readings
-		getAcc(acc_Buffer, &acc_X, &acc_Y, &acc_Z);
+    		// Receive ultrasonic sensor readings
+    		getUS(us_Buffer, usValues);
+    		
+    		// Receive infrared sensor readings
+    		getIR(ir_Buffer, irValues);
+    		
+    		// Receive gyroscope readings
+    		getGyro(gyro_Buffer, &gyro_X, &gyro_Y, &gyro_Z);
+    		
+    		// Receive encoder readings
+    		getEC(&posL, &posR);
+    		
+    		// Receive encoder speed readings
+    		getSPD(&spdL, &spdR);
 
-		// Receive ultrasonic sensor readings
-		getUS(us_Buffer, usValues);
-		
-		// Receive infrared sensor readings
-		getIR(ir_Buffer, irValues);
-		
-		// Receive gyroscope readings
-		getGyro(gyro_Buffer, &gyro_X, &gyro_Y, &gyro_Z);
-		
-		// Receive encoder readings
-		getEC(&posL, &posR);
-		
-		// Receive encoder speed readings
-		getSPD(&spdL, &spdR);
+            // Receive LRF readings if available
+            if(!(LRF_DeviceHandle < 0))
+                getLRF(LRF_DeviceHandle, LRF_Buffer);
+            else
+                memset(LRF_Buffer, 0, sizeof(long)*LRF_DATA_NB);
 
-        // Receive LRF readings if available
-        if(!(LRF_DeviceHandle < 0))
-            getLRF(LRF_DeviceHandle, LRF_Buffer);
-        else
-            memset(LRF_Buffer, 0, sizeof(long)*LRF_DATA_NB);
-
-		//TCPsendSensor(new_socket, T, acc_X, acc_Y, acc_Z, gyro_X, gyro_Y, gyro_Z, posL, posR, spdL, spdR, usValues, irValues);
-		UDPsendSensor(UDP_sockfd, servaddr, T, acc_X, acc_Y, acc_Z, gyro_X, gyro_Y, gyro_Z, posL, posR, spdL, spdR, usValues, irValues, LRF_Buffer);
-		//printf("Sleeping...\n");
-		usleep(main_loop_delay); // wait 105 ms, time for gyro to read fresh data
+    		//TCPsendSensor(new_socket, T, acc_X, acc_Y, acc_Z, gyro_X, gyro_Y, gyro_Z, posL, posR, spdL, spdR, usValues, irValues);
+    		UDPsendSensor(UDP_sockfd, servaddr, 0, acc_X, acc_Y, acc_Z, gyro_X, gyro_Y, gyro_Z, posL, posR, spdL, spdR, usValues, irValues, LRF_Buffer);
+    		//printf("Sleeping...\n");
+		}
   	}	
 
 
