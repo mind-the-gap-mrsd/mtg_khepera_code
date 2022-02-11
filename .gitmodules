@@ -1,0 +1,3 @@
+[submodule "nanopb"]
+	path = nanopb
+	url = git@github.com:MRSD-Team-RoboSAR/nanopb.git

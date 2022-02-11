@@ -11,6 +11,8 @@
 #include <arpa/inet.h>
 #include <math.h>
 #include <ifaddrs.h>
+#include "robosar.pb.h"
+#include <pb_encode.h>
 
 
 /** Declaring parameters as global variables
@@ -119,7 +121,7 @@ void Ang_Vel_Control(double ang, double vel) {
 
 	// put limits
 	left_wheel_speed = fabs(left_wheel_speed) > MAX_WHEEL_SPEED_MM_S ? MAX_WHEEL_SPEED_MM_S*getSign(left_wheel_speed) : left_wheel_speed;
-	left_wheel_speed = fabs(right_wheel_speed) > MAX_WHEEL_SPEED_MM_S ? MAX_WHEEL_SPEED_MM_S*getSign(right_wheel_speed) : right_wheel_speed;
+	right_wheel_speed = fabs(right_wheel_speed) > MAX_WHEEL_SPEED_MM_S ? MAX_WHEEL_SPEED_MM_S*getSign(right_wheel_speed) : right_wheel_speed;
 
 
 	int PL = v2p(left_wheel_speed);
@@ -345,6 +347,8 @@ void UDP_Client(int * sockfd, struct sockaddr_in * servaddr, struct sockaddr_in 
 /*------------Sending sensor values to UDP server in one big string-------------*/
 void UDPsendSensor(int UDP_sockfd, struct sockaddr_in servaddr, long double T, double acc_X, double acc_Y, double acc_Z, double gyro_X, double gyro_Y, double gyro_Z, unsigned int posL, unsigned int posR, unsigned int spdL, unsigned int spdR, short usValues[], int irValues[], long LRFValues[]) {
 	char text[25000];
+	uint8_t proto_buffer[25000];
+	static unsigned long int seq_id = 0;
 
 	// Separate sensor readings with "tags"
 	// EX: "-----AY2.5AY-------"
@@ -352,143 +356,99 @@ void UDPsendSensor(int UDP_sockfd, struct sockaddr_in servaddr, long double T, d
 	// Which splits the data into [-----, 2.5, -------]
 	// then it gets the second index, [1], which is 2.5
 
+	/** Create empty protobuf messages */
+	robosar_fms_SensorData proto_data_all;	
+
 	// Time stamp
 	sprintf(text, "T");
 	sprintf(text + strlen(text), "%2.4f", T);
 	sprintf(text + strlen(text), "T\n");
+	proto_data_all.timestamp_ns = 0; // TODO @indraneel later
+
+	// seq id
+	proto_data_all.seq_id = seq_id;
+	seq_id++;
 
 	// Accelerometer
-	sprintf(text + strlen(text), "AX");
-	sprintf(text + strlen(text), "%2.4f", acc_X);
-	sprintf(text + strlen(text), "AX ");
-
-	sprintf(text + strlen(text), "AY");
-	sprintf(text + strlen(text), "%2.4f", acc_Y);
-	sprintf(text + strlen(text), "AY ");
-
-	sprintf(text + strlen(text), "AZ");
-	sprintf(text + strlen(text), "%2.4f", acc_Z);
-	sprintf(text + strlen(text), "AZ\n");
+	robosar_fms_Accelerometer proto_accel_data;
+	proto_accel_data.acc_x = acc_X;
+	proto_accel_data.acc_y = acc_Y;
+	proto_accel_data.acc_z = acc_Z;
+	proto_data_all.accel_data = proto_accel_data;
 
 	// Gyroscope
-	sprintf(text + strlen(text), "GX");
-	sprintf(text + strlen(text), "%2.4f", gyro_X);
-	sprintf(text + strlen(text), "GX ");
-
-	sprintf(text + strlen(text), "GY");
-	sprintf(text + strlen(text), "%2.4f", gyro_Y);
-	sprintf(text + strlen(text), "GY ");
-
-	sprintf(text + strlen(text), "GZ");
-	sprintf(text + strlen(text), "%2.4f", gyro_Z);
-	sprintf(text + strlen(text), "GZ\n\n");
+	robosar_fms_Gyroscope proto_gyro_data;
+	proto_gyro_data.gyro_x = gyro_X;
+	proto_gyro_data.gyro_y = gyro_Y;
+	proto_gyro_data.gyro_z = gyro_Z;
+	proto_data_all.gyro_data = proto_gyro_data;
 
 	// Encoders
-	sprintf(text + strlen(text), "PL");
-	sprintf(text + strlen(text), "%d", posL);
-	sprintf(text + strlen(text), "PL ");
+	robosar_fms_Encoder_count proto_enc_count_data;
+	proto_enc_count_data.left = posL;
+	proto_enc_count_data.right = posR;
+	proto_data_all.count_data = proto_enc_count_data;
 
-	sprintf(text + strlen(text), "PR");
-	sprintf(text + strlen(text), "%d", posR);
-	sprintf(text + strlen(text), "PR\n");
-
-	sprintf(text + strlen(text), "SL");
-	sprintf(text + strlen(text), "%d", spdL);
-	sprintf(text + strlen(text), "SL ");
-
-	sprintf(text + strlen(text), "SR");
-	sprintf(text + strlen(text), "%d", spdR);
-	sprintf(text + strlen(text), "SR\n\n");
+	robosar_fms_Encoder_speed proto_enc_speed_data;
+	proto_enc_speed_data.left = spdL;
+	proto_enc_speed_data.right = spdR;
+	proto_data_all.speed_data = proto_enc_speed_data;
 
 	// Ultrasonic sensor
-	sprintf(text + strlen(text), "UA");
-	sprintf(text + strlen(text), "%d", usValues[0]);
-	sprintf(text + strlen(text), "UA ");
-
-	sprintf(text + strlen(text), "UB");
-	sprintf(text + strlen(text), "%d", usValues[1]);
-	sprintf(text + strlen(text), "UB ");
-
-	sprintf(text + strlen(text), "UC");
-	sprintf(text + strlen(text), "%d", usValues[2]);
-	sprintf(text + strlen(text), "UC ");
-
-	sprintf(text + strlen(text), "UD");
-	sprintf(text + strlen(text), "%d", usValues[3]);
-	sprintf(text + strlen(text), "UD ");
-
-	sprintf(text + strlen(text), "UE");
-	sprintf(text + strlen(text), "%d", usValues[4]);
-	sprintf(text + strlen(text), "UE\n");
+	robosar_fms_Ultrasonic proto_us_data;
+	proto_us_data.sensor_a = usValues[0];
+    proto_us_data.sensor_b = usValues[1];
+    proto_us_data.sensor_c = usValues[2];
+    proto_us_data.sensor_d = usValues[3];
+    proto_us_data.sensor_e = usValues[4];
+	proto_data_all.us_data = proto_us_data;
 
 	// Infrared sensor
-	sprintf(text + strlen(text), "IA");
-	sprintf(text + strlen(text), "%d", irValues[0]);
-	sprintf(text + strlen(text), "IA ");
+	robosar_fms_Infrared proto_ir_data;
+	proto_ir_data.sensor_a = irValues[0];
+    proto_ir_data.sensor_b = irValues[1];
+    proto_ir_data.sensor_c = irValues[2];
+    proto_ir_data.sensor_d = irValues[3];
+    proto_ir_data.sensor_e = irValues[4];
+    proto_ir_data.sensor_f = irValues[5];
+    proto_ir_data.sensor_g = irValues[6];
+    proto_ir_data.sensor_h = irValues[7];
+    proto_ir_data.sensor_i = irValues[8];
+    proto_ir_data.sensor_j = irValues[9];
+    proto_ir_data.sensor_k = irValues[10];
+    proto_ir_data.sensor_l = irValues[11];
+	proto_data_all.ir_data = proto_ir_data;
 
-	sprintf(text + strlen(text), "IB");
-	sprintf(text + strlen(text), "%d", irValues[1]);
-	sprintf(text + strlen(text), "IB ");
-
-	sprintf(text + strlen(text), "IC");
-	sprintf(text + strlen(text), "%d", irValues[2]);
-	sprintf(text + strlen(text), "IC ");
-
-	sprintf(text + strlen(text), "ID");
-	sprintf(text + strlen(text), "%d", irValues[3]);
-	sprintf(text + strlen(text), "ID\n");
-
-	sprintf(text + strlen(text), "IE");
-	sprintf(text + strlen(text), "%d", irValues[4]);
-	sprintf(text + strlen(text), "IE ");
-
-	sprintf(text + strlen(text), "IF");
-	sprintf(text + strlen(text), "%d", irValues[5]);
-	sprintf(text + strlen(text), "IF ");
-
-	sprintf(text + strlen(text), "IG");
-	sprintf(text + strlen(text), "%d", irValues[6]);
-	sprintf(text + strlen(text), "IG ");
-
-	sprintf(text + strlen(text), "IH");
-	sprintf(text + strlen(text), "%d", irValues[7]);
-	sprintf(text + strlen(text), "IH\n");
-
-	sprintf(text + strlen(text), "II");
-	sprintf(text + strlen(text), "%d", irValues[8]);
-	sprintf(text + strlen(text), "II ");
-
-	sprintf(text + strlen(text), "IJ");
-	sprintf(text + strlen(text), "%d", irValues[9]);
-	sprintf(text + strlen(text), "IJ ");
-
-	sprintf(text + strlen(text), "IK");
-	sprintf(text + strlen(text), "%d", irValues[10]);
-	sprintf(text + strlen(text), "IK ");
-
-	sprintf(text + strlen(text), "IL");
-	sprintf(text + strlen(text), "%d", irValues[11]);
-	sprintf(text + strlen(text), "IL\n");
-
-    // LRF
+	 // LRF sensor
+	robosar_fms_LaserScanner proto_lrf_data;
     int i;
     for(i=0;i<LRF_DATA_NB;i++){
-        sprintf(text + strlen(text), "LRF%3d - %4ldmm\n", i, LRFValues[i]);
+		proto_lrf_data.values[i] = LRFValues[i];
     }
+	proto_lrf_data.values_count = LRF_DATA_NB;
+	proto_data_all.lrf_data = proto_lrf_data;
 
-    printf("%s\n",text);
+	pb_ostream_t stream = pb_ostream_from_buffer(proto_buffer, sizeof(proto_buffer));
+	bool status = pb_encode(&stream, robosar_fms_SensorData_fields, &proto_data_all);
+	size_t proto_msg_length = stream.bytes_written;
 
-
-	
 
 	// Have char pointer p point to the whole text, send it to the client
 	char *p = text;
 	int len = strlen(p);
 
 	// Send the big chunk of sensor data string to server
-    printf("Sending...\n");
-	sendto(UDP_sockfd, (const char *)p, len, MSG_CONFIRM, (const struct sockaddr *) &servaddr, sizeof(servaddr)); 
-    printf("Send completed.\n");
+	/* Check for any protobuf encoding errors */
+	if (!status)
+	{
+		printf("Encoding failed: %s\n", PB_GET_ERROR(&stream));
+	}
+	else 
+	{
+		//printf("Sending... %ld\n",proto_msg_length);
+		sendto(UDP_sockfd, proto_buffer, proto_msg_length, MSG_CONFIRM, (const struct sockaddr *) &servaddr, sizeof(servaddr)); 
+		//printf("Send completed.\n");
+	}
 
 }
 
@@ -496,7 +456,7 @@ void UDPsendSensor(int UDP_sockfd, struct sockaddr_in servaddr, long double T, d
 
 /*---------------- Receiving and parsing from sever -----------------*/
 
-void UDPrecvParseFromServer(int UDP_sockfd, struct sockaddr_in servaddr, double * W, double * V) {
+void UDPrecvParseFromServer(int UDP_sockfd, struct sockaddr_in servaddr) {
 	char sock_buffer[1024];
 	char *pch;
 	double recv[2];
@@ -504,22 +464,28 @@ void UDPrecvParseFromServer(int UDP_sockfd, struct sockaddr_in servaddr, double 
 	int n, len;
 
 	// Receive data string from server 
-	n = recvfrom(UDP_sockfd, (char *)sock_buffer, MAXLINE, MSG_WAITALL, (struct sockaddr *) &servaddr, &len); 
+	n = recvfrom(UDP_sockfd, (char *)sock_buffer, MAXLINE, MSG_DONTWAIT, (struct sockaddr *) &servaddr, &len); 
 
 	// Parsing the string
 	// The angular velocity (W) and linear velocity (V) are sent in the same string, separated by an 'x'
-	pch = strtok (sock_buffer,"x");
-	while (pch != NULL)
+	if(n>0)
 	{
-	    recv[i] = atof(pch);
-	    i++;
-	    pch = strtok (NULL, "x");
-	}
-	*W = recv[0];
-	*V = recv[1];
+		pch = strtok (sock_buffer,"x");
+		while (pch != NULL)
+		{
+			recv[i] = atof(pch);
+			i++;
+			pch = strtok (NULL, "x");
+		}
+		double W = recv[0];
+		double V = recv[1];
 
-	// Clear buffer
-	memset(sock_buffer, 0, sizeof sock_buffer);
+		// Clear buffer
+		memset(sock_buffer, 0, sizeof sock_buffer);
+
+		// Control the motors
+		Ang_Vel_Control(W, V);
+	}
 }
 
 
@@ -532,6 +498,7 @@ void UDPrecvParseFromServer(int UDP_sockfd, struct sockaddr_in servaddr, double 
 
 int main(int argc, char *argv[]) {
 	int i;
+	long int main_loop_delay;
 	/* Check arguments */
 	if(argc<NUM_PARAMETERS+1)
 	{
@@ -557,6 +524,9 @@ int main(int argc, char *argv[]) {
 		else if(i==4)
 		{
 			feedback_frequency = strtol(argv[i],NULL,10);
+			main_loop_delay = (int)(1e6*(1.0/(double)(feedback_frequency)));
+			// Put lower limit on main loop delay
+			main_loop_delay = main_loop_delay<100000 ? 100000 : main_loop_delay;
 		}
 		else if(i==5)
 		{
@@ -565,6 +535,7 @@ int main(int argc, char *argv[]) {
 	}
 
 	printf("[RoboSAR] Received arguments are server ip : %s control port: %d feedback port: %d\n",server_ip,control_port,feedback_port);
+	printf("Main loop delay is set to %ld\n",main_loop_delay);
 
 
 	/* Initial Template Setup by LinKhepera */
@@ -653,15 +624,12 @@ int main(int argc, char *argv[]) {
 
     while(quitReq == 0) {
 		// Receive linear and angular velocity commands from the server
-		UDPrecvParseFromServer(UDP_sockfd, servaddr, &W, &V);
+		UDPrecvParseFromServer(UDP_sockfd, servaddr);
 
 		// Get khepera time stamp
 		gettimeofday(&endt,0x0);
 		long long t = timeval_diff(NULL, &endt, &startt);
 		T = t / 1000000.0;
-
-		// Control the motors
-		Ang_Vel_Control(W, V);
 		
 		/*-------------------------------Useful Functions-----------------------------*/
 		
@@ -705,8 +673,8 @@ int main(int argc, char *argv[]) {
 
 		//TCPsendSensor(new_socket, T, acc_X, acc_Y, acc_Z, gyro_X, gyro_Y, gyro_Z, posL, posR, spdL, spdR, usValues, irValues);
 		UDPsendSensor(UDP_sockfd, servaddr, T, acc_X, acc_Y, acc_Z, gyro_X, gyro_Y, gyro_Z, posL, posR, spdL, spdR, usValues, irValues, LRF_Buffer);
-		printf("Sleeping...\n");
-		usleep(105000); // wait 105 ms, time for gyro to read fresh data
+		//printf("Sleeping...\n");
+		usleep(main_loop_delay); // wait 105 ms, time for gyro to read fresh data
   	}	
 
 
