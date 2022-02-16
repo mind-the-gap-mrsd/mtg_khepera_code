@@ -23,8 +23,9 @@
 int feedback_port;
 int control_port;
 int feedback_frequency;
-int control_timeout;
+long long int control_timeout;
 char* server_ip;
+
 
 #define MAX_WHEEL_SPEED_MM_S 810
 #define MAXLINE 1024 
@@ -34,7 +35,12 @@ char* server_ip;
 static knet_dev_t * dsPic;
 static int quitReq = 0; // quit variable for loop
 
-
+//Velocity timeout related variables
+struct timeval start_v;
+struct timeval end_v;
+int timer_started = 0;
+struct timeval time_elapsed_v;
+struct timeval elapsed_time;
 /*--------------------------------------------------------------------*/
 /* Make sure the program terminate properly on a ctrl-c */
 static void ctrlc_handler( int sig ) 
@@ -456,13 +462,12 @@ void UDPsendSensor(int UDP_sockfd, struct sockaddr_in servaddr, long double T, d
 
 /*---------------- Receiving and parsing from sever -----------------*/
 
-void UDPrecvParseFromServer(int UDP_sockfd, struct sockaddr_in servaddr) {
+struct timeval UDPrecvParseFromServer(int UDP_sockfd, struct sockaddr_in servaddr) {
 	char sock_buffer[1024];
 	char *pch;
 	double recv[2];
 	int i = 0;
 	int n, len;
-
 	// Receive data string from server 
 	n = recvfrom(UDP_sockfd, (char *)sock_buffer, MAXLINE, MSG_DONTWAIT, (struct sockaddr *) &servaddr, &len); 
 
@@ -479,13 +484,31 @@ void UDPrecvParseFromServer(int UDP_sockfd, struct sockaddr_in servaddr) {
 		}
 		double W = recv[0];
 		double V = recv[1];
+			
 
 		// Clear buffer
 		memset(sock_buffer, 0, sizeof sock_buffer);
 
 		// Control the motors
 		Ang_Vel_Control(W, V);
+		elapsed_time.tv_sec = 0;
+		elapsed_time.tv_usec = 0;
+		timer_started = 0;
 	}
+	else 
+	{
+			if(timer_started == 0)
+			{
+				gettimeofday(&start_v,NULL);
+				timer_started = 1;
+			}
+			else
+			{
+				gettimeofday(&end_v,NULL);
+				elapsed_time.tv_usec = timeval_diff(NULL,&end_v,&start_v);
+			}
+	}
+	return elapsed_time;
 }
 
 
@@ -530,7 +553,7 @@ int main(int argc, char *argv[]) {
 		}
 		else if(i==5)
 		{
-			control_timeout = strtol(argv[i],NULL,10);
+			control_timeout = 1000LL*(strtol(argv[i],NULL,10));
 		}
 	}
 
@@ -619,8 +642,22 @@ int main(int argc, char *argv[]) {
 
     while(quitReq == 0) {
 		// Receive linear and angular velocity commands from the server
-		UDPrecvParseFromServer(UDP_sockfd, servaddr);
+		time_elapsed_v = UDPrecvParseFromServer(UDP_sockfd, servaddr);
+		struct timeval control_timeout_s;
+		control_timeout_s.tv_usec = control_timeout;
+		long long int control_full;
+		long long int time_elapsed_full;
 
+		control_full = 1000000LL*control_timeout_s.tv_sec + control_timeout_s.tv_usec;
+		time_elapsed_full = 1000000LL*time_elapsed_v.tv_sec + time_elapsed_v.tv_usec;
+		
+		if(time_elapsed_full >= control_full && timer_started==1)
+		{
+			kh4_set_speed(0,0,dsPic);
+			timer_started = 0;
+			time_elapsed_full = 0;
+		}
+		// if the velocity is non zero and last received velocity toimestamp is mreo than control time out, set v = 0
 		// Update time
 		gettimeofday(&cur_time,0x0);
 		elapsed_time_us = timeval_diff(NULL, &cur_time, &old_time);
