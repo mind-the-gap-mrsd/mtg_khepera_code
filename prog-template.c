@@ -573,11 +573,17 @@ int main(int argc, char *argv[]) {
     kb_lrf_Power_On();
 
     // Initialize LRF
-    if ((LRF_DeviceHandle = kb_lrf_Init(LRF_DEVICE))<0)
-    {
-        printf("\nERROR: port %s could not initialise LRF!\n",LRF_DEVICE);
+    char LRF_device[] = LRF_DEVICE;
+    char LRF_device_id;
+    for(LRF_device_id = '0'; LRF_device_id <= '9'; LRF_device_id++){
+        LRF_device[strlen(LRF_device)-1] = LRF_device_id;
+        if ((LRF_DeviceHandle = kb_lrf_Init(LRF_device))<0){
+            printf("ERRR: port %s could not initialise LRF!\n",LRF_device);
+        } else{
+            printf("SUCC: port %s initialised for LRF!\n",LRF_device);
+            break;
+        }
     }
-  
 
   	// Establish socket communication
   	int new_socket;
