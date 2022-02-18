@@ -41,6 +41,9 @@ struct timeval end_v;
 int timer_started = 0;
 struct timeval time_elapsed_v;
 struct timeval elapsed_time;
+
+double W = 0.00;
+double V = 0.00;
 /*--------------------------------------------------------------------*/
 /* Make sure the program terminate properly on a ctrl-c */
 static void ctrlc_handler( int sig ) 
@@ -473,6 +476,7 @@ struct timeval UDPrecvParseFromServer(int UDP_sockfd, struct sockaddr_in servadd
 
 	// Parsing the string
 	// The angular velocity (W) and linear velocity (V) are sent in the same string, separated by an 'x'
+
 	if(n>0)
 	{
 		pch = strtok (sock_buffer,"x");
@@ -482,8 +486,8 @@ struct timeval UDPrecvParseFromServer(int UDP_sockfd, struct sockaddr_in servadd
 			i++;
 			pch = strtok (NULL, "x");
 		}
-		double W = recv[0];
-		double V = recv[1];
+		W = recv[0];
+		V = recv[1];
 			
 
 		// Clear buffer
@@ -495,9 +499,9 @@ struct timeval UDPrecvParseFromServer(int UDP_sockfd, struct sockaddr_in servadd
 		elapsed_time.tv_usec = 0;
 		timer_started = 0;
 	}
-	else 
+	else
 	{
-			if(timer_started == 0)
+			if(timer_started == 0 && (W!=0.00 || V!=0.00))
 			{
 				gettimeofday(&start_v,NULL);
 				timer_started = 1;
@@ -628,8 +632,8 @@ int main(int argc, char *argv[]) {
     unsigned int spdL, spdR;
 
     // Angular (W) and linear (V) velocity control parameters
-    double W = 0; 
-    double V = 0;
+    // double W = 0; 
+    // double V = 0;
 
     // Variables for time stamps
     struct timeval cur_time, old_time;
@@ -650,10 +654,11 @@ int main(int argc, char *argv[]) {
 
 		control_full = 1000000LL*control_timeout_s.tv_sec + control_timeout_s.tv_usec;
 		time_elapsed_full = 1000000LL*time_elapsed_v.tv_sec + time_elapsed_v.tv_usec;
-		
 		if(time_elapsed_full >= control_full && timer_started==1)
 		{
 			kh4_set_speed(0,0,dsPic);
+			V = 0.00;
+			W = 0.00;
 			timer_started = 0;
 			time_elapsed_full = 0;
 		}
