@@ -20,6 +20,9 @@
  * Run this file as ./binary [SERVER_IP] [CONTROL_PORT] [FEEDBACK_PORT] [FEEDBACK_FREQUENCY_HZ] [CONTROL_TIMEOUT_MS]
 */
 #define NUM_PARAMETERS 5
+#define TRUE 1
+#define FALSE 0
+#define epsilon 1e7
 int feedback_port;
 int control_port;
 int feedback_frequency;
@@ -42,8 +45,10 @@ int timer_started = 0;
 struct timeval time_elapsed_v;
 struct timeval elapsed_time;
 
-double W = 0.00;
-double V = 0.00;
+struct velo_cmd_s {
+	double W;
+	double V;
+} velo_cmd = {0.0,0.0};
 /*--------------------------------------------------------------------*/
 /* Make sure the program terminate properly on a ctrl-c */
 static void ctrlc_handler( int sig ) 
@@ -461,7 +466,20 @@ void UDPsendSensor(int UDP_sockfd, struct sockaddr_in servaddr, long double T, d
 
 }
 
-
+/**
+ * 	Helper function for double comparison
+ * 
+  */
+bool is_velocity_non_zero(struct velo_cmd_s cur_cmd)
+{
+	bool result = true;
+	if( (cur_cmd.V < 0.0 + epsilon && cur_cmd.V > 0.0-epsilon) &&
+		(cur_cmd.W < 0.0 + epsilon && cur_cmd.W > 0.0-epsilon))
+		{
+			result = false;
+		}
+	return result;
+}
 
 /*---------------- Receiving and parsing from sever -----------------*/
 
@@ -486,25 +504,25 @@ struct timeval UDPrecvParseFromServer(int UDP_sockfd, struct sockaddr_in servadd
 			i++;
 			pch = strtok (NULL, "x");
 		}
-		W = recv[0];
-		V = recv[1];
+		velo_cmd.W = recv[0];
+		velo_cmd.V = recv[1];
 			
 
 		// Clear buffer
 		memset(sock_buffer, 0, sizeof sock_buffer);
 
 		// Control the motors
-		Ang_Vel_Control(W, V);
+		Ang_Vel_Control(velo_cmd.W, velo_cmd.V);
 		elapsed_time.tv_sec = 0;
 		elapsed_time.tv_usec = 0;
 		timer_started = 0;
 	}
 	else
 	{
-			if(timer_started == 0 && (W!=0.00 || V!=0.00))
+			if(timer_started == FALSE && is_velocity_non_zero(velo_cmd))
 			{
 				gettimeofday(&start_v,NULL);
-				timer_started = 1;
+				timer_started = TRUE;
 			}
 			else
 			{
@@ -631,9 +649,6 @@ int main(int argc, char *argv[]) {
     unsigned int posL, posR;
     unsigned int spdL, spdR;
 
-    // Angular (W) and linear (V) velocity control parameters
-    // double W = 0; 
-    // double V = 0;
 
     // Variables for time stamps
     struct timeval cur_time, old_time;
@@ -657,10 +672,10 @@ int main(int argc, char *argv[]) {
 		if(time_elapsed_full >= control_full && timer_started==1)
 		{
 			kh4_set_speed(0,0,dsPic);
-			V = 0.00;
-			W = 0.00;
-			timer_started = 0;
-			time_elapsed_full = 0;
+			velo_cmd.V = 0.00;
+			velo_cmd.W = 0.00;
+			timer_started = FALSE;
+			time_elapsed_full = FALSE;
 		}
 		// if the velocity is non zero and last received velocity toimestamp is mreo than control time out, set v = 0
 		// Update time
