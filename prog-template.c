@@ -40,15 +40,6 @@ static int quitReq = 0; // quit variable for loop
 static void ctrlc_handler( int sig ) 
 {
   quitReq = 1;
-  
-  kh4_set_speed(0 ,0 ,dsPic); // stop robot
-  kh4_SetMode( kh4RegIdle,dsPic );
-  
-  kh4_SetRGBLeds(0,0,0,0,0,0,0,0,0,dsPic); // clear rgb leds because consumes energy
-  
-  kb_change_term_mode(0); // revert to original terminal if called
-  
-  exit(0);
 }
 
 
