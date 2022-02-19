@@ -613,6 +613,12 @@ int main(int argc, char *argv[]) {
     gettimeofday(&cur_time,0x0);
     old_time = cur_time;
 
+    // Set LED: left RGB, right RGB, back RGB
+    kh4_SetRGBLeds(
+        0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00,
+        0x00, 0xFF, 0x00, dsPic);
+    char led_cnt = 0;
 
     while(quitReq == 0) {
 		// Receive linear and angular velocity commands from the server
@@ -624,6 +630,14 @@ int main(int argc, char *argv[]) {
 
 
 		if(elapsed_time_us > main_loop_delay){
+            led_cnt++;
+            if(led_cnt > feedback_frequency){
+                led_cnt = 0;
+                kh4_SetRGBLeds(
+                    0x00, 0x00, 0x00,
+                    0x00, 0x00, 0x00,
+                    0x00, 0x00, 0x00, dsPic);
+            }
             old_time = cur_time;
             
             //----------------- All sensor readings ------------------//
@@ -654,6 +668,11 @@ int main(int argc, char *argv[]) {
     		//TCPsendSensor(new_socket, T, acc_X, acc_Y, acc_Z, gyro_X, gyro_Y, gyro_Z, posL, posR, spdL, spdR, usValues, irValues);
     		UDPsendSensor(UDP_sockfd, servaddr, 0, acc_X, acc_Y, acc_Z, gyro_X, gyro_Y, gyro_Z, posL, posR, spdL, spdR, usValues, irValues, LRF_Buffer);
     		//printf("Sleeping...\n");
+
+            kh4_SetRGBLeds(
+                0x00, 0x00, 0x00,
+                0x00, 0x00, 0x00,
+                0x00, 0xFF, 0x00, dsPic);
 		}
   	}	
 
@@ -663,6 +682,11 @@ int main(int argc, char *argv[]) {
 
     // Close the lrf device
     kb_lrf_Close(LRF_DeviceHandle);
+
+    kh4_SetRGBLeds(
+        0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, dsPic);
 
   	// switch to normal key input mode
   	// This is important, if we don't switch the term mode back to zero
