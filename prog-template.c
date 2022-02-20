@@ -39,11 +39,7 @@ static knet_dev_t * dsPic;
 static int quitReq = 0; // quit variable for loop
 
 //Velocity timeout related variables
-struct timeval start_v;
-struct timeval end_v;
-int timer_started = 0;
-struct timeval time_elapsed_v;
-struct timeval elapsed_time;
+int timer_started = FALSE;
 
 struct velo_cmd_s {
 	double W;
@@ -489,6 +485,10 @@ struct timeval UDPrecvParseFromServer(int UDP_sockfd, struct sockaddr_in servadd
 	double recv[2];
 	int i = 0;
 	int n, len;
+	struct timeval start_v;
+	struct timeval end_v;
+	struct timeval elapsed_time;
+
 	// Receive data string from server 
 	n = recvfrom(UDP_sockfd, (char *)sock_buffer, MAXLINE, MSG_DONTWAIT, (struct sockaddr *) &servaddr, &len); 
 
@@ -515,7 +515,7 @@ struct timeval UDPrecvParseFromServer(int UDP_sockfd, struct sockaddr_in servadd
 		Ang_Vel_Control(velo_cmd.W, velo_cmd.V);
 		elapsed_time.tv_sec = 0;
 		elapsed_time.tv_usec = 0;
-		timer_started = 0;
+		timer_started = FALSE;
 	}
 	else
 	{
@@ -523,6 +523,7 @@ struct timeval UDPrecvParseFromServer(int UDP_sockfd, struct sockaddr_in servadd
 			{
 				gettimeofday(&start_v,NULL);
 				timer_started = TRUE;
+				printf("Starting timer \n");
 			}
 			else
 			{
@@ -661,7 +662,7 @@ int main(int argc, char *argv[]) {
 
     while(quitReq == 0) {
 		// Receive linear and angular velocity commands from the server
-		time_elapsed_v = UDPrecvParseFromServer(UDP_sockfd, servaddr);
+		struct timeval time_elapsed_v = UDPrecvParseFromServer(UDP_sockfd, servaddr);
 		struct timeval control_timeout_s;
 		control_timeout_s.tv_usec = control_timeout;
 		long long int control_full;
