@@ -20,11 +20,15 @@
  * Run this file as ./binary [SERVER_IP] [CONTROL_PORT] [FEEDBACK_PORT] [FEEDBACK_FREQUENCY_HZ] [CONTROL_TIMEOUT_MS]
 */
 #define NUM_PARAMETERS 5
+#define TRUE 1
+#define FALSE 0
+#define epsilon 1e-7
 int feedback_port;
 int control_port;
 int feedback_frequency;
-int control_timeout;
+long long int control_timeout;
 char* server_ip;
+
 
 #define MAX_WHEEL_SPEED_MM_S 810
 #define MAXLINE 1024 
@@ -34,7 +38,13 @@ char* server_ip;
 static knet_dev_t * dsPic;
 static int quitReq = 0; // quit variable for loop
 
+//Velocity timeout related variables
+int timer_started = FALSE;
 
+struct velo_cmd_s {
+	double W;
+	double V;
+} velo_cmd = {0.0,0.0};
 /*--------------------------------------------------------------------*/
 /* Make sure the program terminate properly on a ctrl-c */
 static void ctrlc_handler( int sig ) 
@@ -452,16 +462,32 @@ void UDPsendSensor(int UDP_sockfd, struct sockaddr_in servaddr, long double T, d
 
 }
 
-
+/**
+ * 	Helper function for double comparison
+ * 
+  */
+bool is_velocity_non_zero(struct velo_cmd_s cur_cmd)
+{
+	bool result = true;
+	if( (cur_cmd.V < 0.0 + epsilon && cur_cmd.V > 0.0-epsilon) &&
+		(cur_cmd.W < 0.0 + epsilon && cur_cmd.W > 0.0-epsilon))
+		{
+			result = false;
+		}
+	return result;
+}
 
 /*---------------- Receiving and parsing from sever -----------------*/
 
-void UDPrecvParseFromServer(int UDP_sockfd, struct sockaddr_in servaddr) {
+struct timeval UDPrecvParseFromServer(int UDP_sockfd, struct sockaddr_in servaddr) {
 	char sock_buffer[1024];
 	char *pch;
 	double recv[2];
 	int i = 0;
 	int n, len;
+	static struct timeval start_v;
+	static struct timeval end_v;
+	static struct timeval elapsed_time;
 
 	// Receive data string from server 
 	n = recvfrom(UDP_sockfd, (char *)sock_buffer, MAXLINE, MSG_DONTWAIT, (struct sockaddr *) &servaddr, &len); 
@@ -477,15 +503,39 @@ void UDPrecvParseFromServer(int UDP_sockfd, struct sockaddr_in servaddr) {
 			i++;
 			pch = strtok (NULL, "x");
 		}
-		double W = recv[0];
-		double V = recv[1];
+		velo_cmd.W = recv[0];
+		velo_cmd.V = recv[1];
+			
 
 		// Clear buffer
 		memset(sock_buffer, 0, sizeof sock_buffer);
 
 		// Control the motors
-		Ang_Vel_Control(W, V);
+		Ang_Vel_Control(velo_cmd.W, velo_cmd.V);
+		elapsed_time.tv_sec = 0;
+		elapsed_time.tv_usec = 0;
+		timer_started = FALSE;
 	}
+	else
+	{
+			if(timer_started == FALSE && is_velocity_non_zero(velo_cmd))
+			{
+				gettimeofday(&start_v,NULL);
+				timer_started = TRUE;
+			}
+			else if(timer_started == TRUE)
+			{
+				gettimeofday(&end_v,NULL);
+				elapsed_time.tv_usec = timeval_diff(NULL,&end_v,&start_v);
+			}
+			else
+			{
+				// Robot is idle do nothing
+				elapsed_time.tv_sec = 0;
+				elapsed_time.tv_usec = 0;
+			}
+	}
+	return elapsed_time;
 }
 
 
@@ -530,7 +580,7 @@ int main(int argc, char *argv[]) {
 		}
 		else if(i==5)
 		{
-			control_timeout = strtol(argv[i],NULL,10);
+			control_timeout = 1000LL*(strtol(argv[i],NULL,10));
 		}
 	}
 
@@ -604,9 +654,6 @@ int main(int argc, char *argv[]) {
     unsigned int posL, posR;
     unsigned int spdL, spdR;
 
-    // Angular (W) and linear (V) velocity control parameters
-    double W = 0; 
-    double V = 0;
 
     // Variables for time stamps
     struct timeval cur_time, old_time;
@@ -619,8 +666,24 @@ int main(int argc, char *argv[]) {
 
     while(quitReq == 0) {
 		// Receive linear and angular velocity commands from the server
-		UDPrecvParseFromServer(UDP_sockfd, servaddr);
+		struct timeval time_elapsed_v = UDPrecvParseFromServer(UDP_sockfd, servaddr);
+		struct timeval control_timeout_s;
+		control_timeout_s.tv_usec = control_timeout;
+		long long int control_full;
+		long long int time_elapsed_full;
 
+		control_full = 1000000LL*control_timeout_s.tv_sec + control_timeout_s.tv_usec;
+		time_elapsed_full = 1000000LL*time_elapsed_v.tv_sec + time_elapsed_v.tv_usec;
+		
+		if(timer_started==TRUE && time_elapsed_full >= control_full)
+		{
+			kh4_set_speed(0,0,dsPic);
+			velo_cmd.V = 0.00;
+			velo_cmd.W = 0.00;
+			timer_started = FALSE;
+			time_elapsed_full = 0;
+		}
+		// if the velocity is non zero and last received velocity timestamp is mreo than control time out, set v = 0
 		// Update time
 		gettimeofday(&cur_time,0x0);
 		elapsed_time_us = timeval_diff(NULL, &cur_time, &old_time);
