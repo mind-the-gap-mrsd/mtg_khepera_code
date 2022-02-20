@@ -42,6 +42,10 @@ static void ctrlc_handler( int sig )
   quitReq = 1;
 }
 
+static void pkill_handler( int sig ) 
+{
+  quitReq = 1;
+}
 
 /*------------------- Time Value Difference -----------*/
 /* Compute time difference
@@ -548,6 +552,8 @@ int main(int argc, char *argv[]) {
 
   	// This is for the ctrl-C handler
   	signal( SIGINT , ctrlc_handler );
+    // To handle PKILL
+    signal( SIGTERM , pkill_handler );
 
   	// Setting the term mode to 1 will return the pressed key immediately!
   	kb_change_term_mode(1);
