@@ -546,6 +546,12 @@ int main(int argc, char *argv[]) {
   	// It handles all the inputs and outputs
   	dsPic  = knet_open( "Khepera4:dsPic" , KNET_BUS_I2C , 0 , NULL );
 
+    // Red LED for booting
+    kh4_SetRGBLeds(
+        0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00,
+        0xFF, 0x00, 0x00, dsPic);
+
   	// This is for the ctrl-C handler
   	signal( SIGINT , ctrlc_handler );
 
