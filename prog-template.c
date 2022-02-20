@@ -681,7 +681,7 @@ int main(int argc, char *argv[]) {
 			velo_cmd.V = 0.00;
 			velo_cmd.W = 0.00;
 			timer_started = FALSE;
-			time_elapsed_full = FALSE;
+			time_elapsed_full = 0;
 		}
 		// if the velocity is non zero and last received velocity timestamp is mreo than control time out, set v = 0
 		// Update time
