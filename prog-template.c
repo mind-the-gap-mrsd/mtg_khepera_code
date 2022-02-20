@@ -22,7 +22,7 @@
 #define NUM_PARAMETERS 5
 #define TRUE 1
 #define FALSE 0
-#define epsilon 1e7
+#define epsilon 1e-7
 int feedback_port;
 int control_port;
 int feedback_frequency;
@@ -485,16 +485,15 @@ struct timeval UDPrecvParseFromServer(int UDP_sockfd, struct sockaddr_in servadd
 	double recv[2];
 	int i = 0;
 	int n, len;
-	struct timeval start_v;
-	struct timeval end_v;
-	struct timeval elapsed_time;
+	static struct timeval start_v;
+	static struct timeval end_v;
+	static struct timeval elapsed_time;
 
 	// Receive data string from server 
 	n = recvfrom(UDP_sockfd, (char *)sock_buffer, MAXLINE, MSG_DONTWAIT, (struct sockaddr *) &servaddr, &len); 
 
 	// Parsing the string
 	// The angular velocity (W) and linear velocity (V) are sent in the same string, separated by an 'x'
-
 	if(n>0)
 	{
 		pch = strtok (sock_buffer,"x");
@@ -523,12 +522,17 @@ struct timeval UDPrecvParseFromServer(int UDP_sockfd, struct sockaddr_in servadd
 			{
 				gettimeofday(&start_v,NULL);
 				timer_started = TRUE;
-				printf("Starting timer \n");
 			}
-			else
+			else if(timer_started == TRUE)
 			{
 				gettimeofday(&end_v,NULL);
 				elapsed_time.tv_usec = timeval_diff(NULL,&end_v,&start_v);
+			}
+			else
+			{
+				// Robot is idle do nothing
+				elapsed_time.tv_sec = 0;
+				elapsed_time.tv_usec = 0;
 			}
 	}
 	return elapsed_time;
@@ -670,7 +674,8 @@ int main(int argc, char *argv[]) {
 
 		control_full = 1000000LL*control_timeout_s.tv_sec + control_timeout_s.tv_usec;
 		time_elapsed_full = 1000000LL*time_elapsed_v.tv_sec + time_elapsed_v.tv_usec;
-		if(time_elapsed_full >= control_full && timer_started==1)
+		
+		if(timer_started==TRUE && time_elapsed_full >= control_full)
 		{
 			kh4_set_speed(0,0,dsPic);
 			velo_cmd.V = 0.00;
@@ -678,7 +683,7 @@ int main(int argc, char *argv[]) {
 			timer_started = FALSE;
 			time_elapsed_full = FALSE;
 		}
-		// if the velocity is non zero and last received velocity toimestamp is mreo than control time out, set v = 0
+		// if the velocity is non zero and last received velocity timestamp is mreo than control time out, set v = 0
 		// Update time
 		gettimeofday(&cur_time,0x0);
 		elapsed_time_us = timeval_diff(NULL, &cur_time, &old_time);
