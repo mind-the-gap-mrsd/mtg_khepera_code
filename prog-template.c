@@ -600,11 +600,11 @@ int main(int argc, char *argv[]) {
   	// It handles all the inputs and outputs
   	dsPic  = knet_open( "Khepera4:dsPic" , KNET_BUS_I2C , 0 , NULL );
 
-    // Red LED for booting
+    // Blue LED for booting
     kh4_SetRGBLeds(
-        0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00,
-        0xFF, 0x00, 0x00, dsPic);
+        0x00, 0x00, 0x08,
+        0x00, 0x00, 0x08,
+        0x00, 0x00, 0x08, dsPic);
 
   	// This is for the ctrl-C handler
   	signal( SIGINT , ctrlc_handler );
@@ -672,11 +672,11 @@ int main(int argc, char *argv[]) {
     gettimeofday(&cur_time,0x0);
     old_time = cur_time;
 
-    // Set LED: left RGB, right RGB, back RGB
+    // Green LED while running
     kh4_SetRGBLeds(
-        0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00,
-        0x00, 0xFF, 0x00, dsPic);
+        0x00, 0x08, 0x00,
+        0x00, 0x08, 0x00,
+        0x00, 0x08, 0x00, dsPic);
     char led_cnt = 0;
 
     while(quitReq == 0) {
@@ -708,6 +708,7 @@ int main(int argc, char *argv[]) {
             led_cnt++;
             if(led_cnt > feedback_frequency){
                 led_cnt = 0;
+                // Turn LED off to cause blinking
                 kh4_SetRGBLeds(
                     0x00, 0x00, 0x00,
                     0x00, 0x00, 0x00,
@@ -745,9 +746,9 @@ int main(int argc, char *argv[]) {
     		//printf("Sleeping...\n");
 
             kh4_SetRGBLeds(
-                0x00, 0x00, 0x00,
-                0x00, 0x00, 0x00,
-                0x00, 0xFF, 0x00, dsPic);
+                0x00, 0x08, 0x00,
+                0x00, 0x08, 0x00,
+                0x00, 0x08, 0x00, dsPic);
 		}
   	}	
 
@@ -758,10 +759,11 @@ int main(int argc, char *argv[]) {
     // Close the lrf device
     kb_lrf_Close(LRF_DeviceHandle);
 
+    // Red when not doing anything
     kh4_SetRGBLeds(
-        0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, dsPic);
+        0x08, 0x00, 0x00,
+        0x08, 0x00, 0x00,
+        0x08, 0x00, 0x00, dsPic);
 
   	// switch to normal key input mode
   	// This is important, if we don't switch the term mode back to zero
