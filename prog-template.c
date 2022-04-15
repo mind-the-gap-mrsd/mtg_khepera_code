@@ -537,6 +537,36 @@ struct timeval UDPrecvParseFromServer(int UDP_sockfd, struct sockaddr_in servadd
 	return elapsed_time;
 }
 
+void display_battery_status(knet_dev_t *hDev){
+    char bat_buffer[100];
+    kh4_battery_status(bat_buffer,dsPic);
+    int battery_charge = bat_buffer[3];
+    if(battery_charge > 75){
+        // Green
+        kh4_SetRGBLeds(
+            0x00, 0x08, 0x00,
+            0x00, 0x08, 0x00,
+            0x00, 0x08, 0x00, hDev);
+    }else if(battery_charge > 50){
+        // Yellow
+        kh4_SetRGBLeds(
+            0x08, 0x08, 0x00,
+            0x08, 0x08, 0x00,
+            0x08, 0x08, 0x00, hDev);
+    }else if(battery_charge > 25){
+        // Orange
+        kh4_SetRGBLeds(
+            0x14, 0x04, 0x00,
+            0x14, 0x04, 0x00,
+            0x14, 0x04, 0x00, hDev);
+    }else{
+        // Red
+        kh4_SetRGBLeds(
+            0x20, 0x00, 0x00,
+            0x20, 0x00, 0x00,
+            0x20, 0x00, 0x00, hDev);
+    }
+}
 
 
 
@@ -676,11 +706,7 @@ int main(int argc, char *argv[]) {
     gettimeofday(&cur_time,0x0);
     old_time = cur_time;
 
-    // Green LED while running
-    kh4_SetRGBLeds(
-        0x00, 0x08, 0x00,
-        0x00, 0x08, 0x00,
-        0x00, 0x08, 0x00, dsPic);
+    // For blinking LED
     char led_cnt = 0;
 
     while(quitReq == 0) {
@@ -754,10 +780,9 @@ int main(int argc, char *argv[]) {
     		UDPsendSensor(UDP_sockfd, servaddr, 0, acc_X, acc_Y, acc_Z, gyro_X, gyro_Y, gyro_Z, posL, posR, spdL, spdR, usValues, irValues, LRF_Buffer);
     		//printf("Sleeping...\n");
 
-            kh4_SetRGBLeds(
-                0x00, 0x08, 0x00,
-                0x00, 0x08, 0x00,
-                0x00, 0x08, 0x00, dsPic);
+            // Display battery status
+            display_battery_status(dsPic);
+
 		}
   	}	
 
