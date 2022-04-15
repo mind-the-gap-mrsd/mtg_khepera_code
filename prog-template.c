@@ -45,6 +45,8 @@ struct velo_cmd_s {
 	double W;
 	double V;
 } velo_cmd = {0.0,0.0};
+double override_flag = 0.0;
+
 /*--------------------------------------------------------------------*/
 /* Make sure the program terminate properly on a ctrl-c */
 static void ctrlc_handler( int sig ) 
@@ -376,9 +378,9 @@ void UDPsendSensor(int UDP_sockfd, struct sockaddr_in servaddr, long double T, d
 
 	// Accelerometer
 	robosar_fms_Accelerometer proto_accel_data;
-	proto_accel_data.acc_x = acc_X;
-	proto_accel_data.acc_y = acc_Y;
-	proto_accel_data.acc_z = acc_Z;
+	proto_accel_data.acc_x = velo_cmd.V; // send received lin vel cmd
+	proto_accel_data.acc_y = velo_cmd.W; // send received ang vel cmd
+	proto_accel_data.acc_z = override_flag;
 	proto_data_all.accel_data = proto_accel_data;
 
 	// Gyroscope
@@ -500,6 +502,7 @@ struct timeval UDPrecvParseFromServer(int UDP_sockfd, struct sockaddr_in servadd
 		}
 		velo_cmd.W = recv[0];
 		velo_cmd.V = recv[1];
+        override_flag = 0.0;
 			
 
 		// Clear buffer
@@ -513,22 +516,23 @@ struct timeval UDPrecvParseFromServer(int UDP_sockfd, struct sockaddr_in servadd
 	}
 	else
 	{
-			if(timer_started == FALSE && is_velocity_non_zero(velo_cmd))
-			{
-				gettimeofday(&start_v,NULL);
-				timer_started = TRUE;
-			}
-			else if(timer_started == TRUE)
-			{
-				gettimeofday(&end_v,NULL);
-				elapsed_time.tv_usec = timeval_diff(NULL,&end_v,&start_v);
-			}
-			else
-			{
-				// Robot is idle do nothing
-				elapsed_time.tv_sec = 0;
-				elapsed_time.tv_usec = 0;
-			}
+        // Comment out safety feature
+		if(timer_started == FALSE && is_velocity_non_zero(velo_cmd))
+		{
+			gettimeofday(&start_v,NULL);
+			timer_started = TRUE;
+		}
+		else if(timer_started == TRUE)
+		{
+			gettimeofday(&end_v,NULL);
+			elapsed_time.tv_usec = timeval_diff(NULL,&end_v,&start_v);
+		}
+		else
+		{
+			// Robot is idle do nothing
+			elapsed_time.tv_sec = 0;
+			elapsed_time.tv_usec = 0;
+		}
 	}
 	return elapsed_time;
 }
@@ -695,8 +699,13 @@ int main(int argc, char *argv[]) {
 			kh4_set_speed(0,0,dsPic);
 			velo_cmd.V = 0.00;
 			velo_cmd.W = 0.00;
+            override_flag = 1.0;
 			timer_started = FALSE;
 			time_elapsed_full = 0;
+            kh4_SetRGBLeds(
+                0xFF, 0x00, 0x00,
+                0xFF, 0x00, 0x00,
+                0xFF, 0x00, 0x00, dsPic);
 		}
 		// if the velocity is non zero and last received velocity timestamp is mreo than control time out, set v = 0
 		// Update time
