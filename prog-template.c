@@ -34,6 +34,10 @@ char* server_ip;
 #define MAXLINE 1024 
 #define KH4_GYRO_DEG_S   (66.0/1000.0)
 #define LRF_DEVICE "/dev/ttyACM0" 
+// Thresholds for avoiding collisions
+#define obstacleThreshold 700
+#define obstacleThresholdOblique 600
+#define obstacleNumThreshold 1
 
 static knet_dev_t * dsPic;
 static int quitReq = 0; // quit variable for loop
@@ -500,6 +504,7 @@ struct timeval UDPrecvParseFromServer(int UDP_sockfd, struct sockaddr_in servadd
 			i++;
 			pch = strtok (NULL, "x");
 		}
+        // Update commands and flag
 		velo_cmd.W = recv[0];
 		velo_cmd.V = recv[1];
         override_flag = 0.0;
@@ -508,8 +513,7 @@ struct timeval UDPrecvParseFromServer(int UDP_sockfd, struct sockaddr_in servadd
 		// Clear buffer
 		memset(sock_buffer, 0, sizeof sock_buffer);
 
-		// Control the motors
-		Ang_Vel_Control(velo_cmd.W, velo_cmd.V);
+		// Reset time
 		elapsed_time.tv_sec = 0;
 		elapsed_time.tv_usec = 0;
 		timer_started = FALSE;
@@ -566,6 +570,19 @@ void display_battery_status(knet_dev_t *hDev){
             0x20, 0x00, 0x00,
             0x20, 0x00, 0x00, hDev);
     }
+}
+
+int collision_detection(char *ir_Buffer, int *irValues, int *obstacle_found){
+    // Get values of proximity sensors
+    getIR(ir_Buffer, irValues);
+    //checking the values of the front left, front right and the front IR sensor
+    if((*(irValues + 2)>obstacleThresholdOblique || *(irValues + 4)>obstacleThresholdOblique) || *(irValues + 3)>obstacleThreshold){
+        (*obstacle_found)++;
+    }
+    else{
+        *obstacle_found = 0;
+    }
+    return *obstacle_found;
 }
 
 
@@ -688,6 +705,7 @@ int main(int argc, char *argv[]) {
     short usValues[5]; // Values of the 5 ultrasonic sensor readings from sensor No.1 - 5
     char ir_Buffer[256]; // Buffer for infrared sensors
     int irValues[12]; // Values of the 12 IR sensor readings from sensor No.1 - 12
+    int obstacles_detected = 0; // number of times obstacles detected near Khepera
     char gyro_Buffer[100]; // Buffer for Gyroscope
     long LRF_Buffer[LRF_DATA_NB]; // Buffer for LIDAR readings
 
@@ -719,10 +737,9 @@ int main(int argc, char *argv[]) {
 
 		control_full = 1000000LL*control_timeout_s.tv_sec + control_timeout_s.tv_usec;
 		time_elapsed_full = 1000000LL*time_elapsed_v.tv_sec + time_elapsed_v.tv_usec;
-		
+		// Check for override due to timeout
 		if(timer_started==TRUE && time_elapsed_full >= control_full)
 		{
-			kh4_set_speed(0,0,dsPic);
 			velo_cmd.V = 0.00;
 			velo_cmd.W = 0.00;
             override_flag = 1.0;
@@ -733,6 +750,19 @@ int main(int argc, char *argv[]) {
                 0xFF, 0x00, 0x00,
                 0xFF, 0x00, 0x00, dsPic);
 		}
+        // Check and recheck for override due to imminent collision
+        while(collision_detection(ir_Buffer, irValues, &obstacles_detected)){
+            if(obstacles_detected > obstacleNumThreshold){
+                velo_cmd.V = (velo_cmd.V > 0) ? 0.00 : velo_cmd.V;
+                velo_cmd.W = 0.00;
+                kh4_SetRGBLeds(
+                    0xFF, 0x00, 0xFF,
+                    0xFF, 0x00, 0xFF,
+                    0xFF, 0x00, 0xFF, dsPic);
+                break;
+            }
+        }
+        Ang_Vel_Control(velo_cmd.W, velo_cmd.V);
 		// if the velocity is non zero and last received velocity timestamp is mreo than control time out, set v = 0
 		// Update time
 		gettimeofday(&cur_time,0x0);
