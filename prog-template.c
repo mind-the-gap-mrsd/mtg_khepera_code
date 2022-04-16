@@ -35,8 +35,8 @@ char* server_ip;
 #define KH4_GYRO_DEG_S   (66.0/1000.0)
 #define LRF_DEVICE "/dev/ttyACM0" 
 // Thresholds for avoiding collisions
-#define obstacleThreshold 700
-#define obstacleThresholdOblique 600
+#define obstacleThreshold 500
+#define obstacleThresholdOblique 500
 #define obstacleNumThreshold 1
 
 static knet_dev_t * dsPic;
