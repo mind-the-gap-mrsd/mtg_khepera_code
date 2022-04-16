@@ -783,22 +783,22 @@ int main(int argc, char *argv[]) {
             
             //----------------- All sensor readings ------------------//
     		// Receive accelerometer readings
-    		getAcc(acc_Buffer, &acc_X, &acc_Y, &acc_Z);
+    		// getAcc(acc_Buffer, &acc_X, &acc_Y, &acc_Z);
 
     		// Receive ultrasonic sensor readings
-    		getUS(us_Buffer, usValues);
+    		// getUS(us_Buffer, usValues);
     		
     		// Receive infrared sensor readings
-    		getIR(ir_Buffer, irValues);
+    		// getIR(ir_Buffer, irValues);
     		
     		// Receive gyroscope readings
-    		getGyro(gyro_Buffer, &gyro_X, &gyro_Y, &gyro_Z);
+    		// getGyro(gyro_Buffer, &gyro_X, &gyro_Y, &gyro_Z);
     		
     		// Receive encoder readings
     		getEC(&posL, &posR);
     		
     		// Receive encoder speed readings
-    		getSPD(&spdL, &spdR);
+    		// getSPD(&spdL, &spdR);
 
             // Receive LRF readings if available
             if(!(LRF_DeviceHandle < 0))
