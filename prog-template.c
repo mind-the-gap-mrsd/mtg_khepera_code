@@ -28,6 +28,7 @@ int control_port;
 int feedback_frequency;
 long long int control_timeout;
 char* server_ip;
+char status_str[200];
 
 
 #define MAX_WHEEL_SPEED_MM_S 810
@@ -508,6 +509,7 @@ struct timeval UDPrecvParseFromServer(int UDP_sockfd, struct sockaddr_in servadd
 		velo_cmd.W = recv[0];
 		velo_cmd.V = recv[1];
         override_flag = 0.0;
+        sprintf(status_str, "No override;\n");
 			
 
 		// Clear buffer
@@ -749,6 +751,7 @@ int main(int argc, char *argv[]) {
                 0xFF, 0x00, 0x00,
                 0xFF, 0x00, 0x00,
                 0xFF, 0x00, 0x00, dsPic);
+            sprintf(status_str, "Override,timeout;\n");
 		}
         // Check and recheck for override due to imminent collision
         while(collision_detection(ir_Buffer, irValues, &obstacles_detected)){
@@ -759,6 +762,7 @@ int main(int argc, char *argv[]) {
                     0xFF, 0x00, 0xFF,
                     0xFF, 0x00, 0xFF,
                     0xFF, 0x00, 0xFF, dsPic);
+                sprintf(status_str, "Override,infrared;\n");
                 break;
             }
         }
