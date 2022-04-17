@@ -28,6 +28,7 @@ int control_port;
 int feedback_frequency;
 long long int control_timeout;
 char* server_ip;
+char status_str[200];
 
 
 #define MAX_WHEEL_SPEED_MM_S 810
@@ -35,8 +36,8 @@ char* server_ip;
 #define KH4_GYRO_DEG_S   (66.0/1000.0)
 #define LRF_DEVICE "/dev/ttyACM0" 
 // Thresholds for avoiding collisions
-#define obstacleThreshold 700
-#define obstacleThresholdOblique 600
+#define obstacleThreshold 500
+#define obstacleThresholdOblique 500
 #define obstacleNumThreshold 1
 
 static knet_dev_t * dsPic;
@@ -508,6 +509,7 @@ struct timeval UDPrecvParseFromServer(int UDP_sockfd, struct sockaddr_in servadd
 		velo_cmd.W = recv[0];
 		velo_cmd.V = recv[1];
         override_flag = 0.0;
+        sprintf(status_str, "No override;\n");
 			
 
 		// Clear buffer
@@ -749,16 +751,19 @@ int main(int argc, char *argv[]) {
                 0xFF, 0x00, 0x00,
                 0xFF, 0x00, 0x00,
                 0xFF, 0x00, 0x00, dsPic);
+            sprintf(status_str, "Override,timeout;\n");
 		}
         // Check and recheck for override due to imminent collision
         while(collision_detection(ir_Buffer, irValues, &obstacles_detected)){
             if(obstacles_detected > obstacleNumThreshold){
                 velo_cmd.V = (velo_cmd.V > 0) ? 0.00 : velo_cmd.V;
                 velo_cmd.W = 0.00;
+                override_flag = 1.0;
                 kh4_SetRGBLeds(
                     0xFF, 0x00, 0xFF,
                     0xFF, 0x00, 0xFF,
                     0xFF, 0x00, 0xFF, dsPic);
+                sprintf(status_str, "Override,infrared;\n");
                 break;
             }
         }
@@ -783,22 +788,22 @@ int main(int argc, char *argv[]) {
             
             //----------------- All sensor readings ------------------//
     		// Receive accelerometer readings
-    		getAcc(acc_Buffer, &acc_X, &acc_Y, &acc_Z);
+    		// getAcc(acc_Buffer, &acc_X, &acc_Y, &acc_Z);
 
     		// Receive ultrasonic sensor readings
-    		getUS(us_Buffer, usValues);
+    		// getUS(us_Buffer, usValues);
     		
     		// Receive infrared sensor readings
-    		getIR(ir_Buffer, irValues);
+    		// getIR(ir_Buffer, irValues);
     		
     		// Receive gyroscope readings
-    		getGyro(gyro_Buffer, &gyro_X, &gyro_Y, &gyro_Z);
+    		// getGyro(gyro_Buffer, &gyro_X, &gyro_Y, &gyro_Z);
     		
     		// Receive encoder readings
     		getEC(&posL, &posR);
     		
     		// Receive encoder speed readings
-    		getSPD(&spdL, &spdR);
+    		// getSPD(&spdL, &spdR);
 
             // Receive LRF readings if available
             if(!(LRF_DeviceHandle < 0))
