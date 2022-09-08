@@ -440,6 +440,11 @@ void UDPsendSensor(int UDP_sockfd, struct sockaddr_in servaddr, long double T, d
 	proto_lrf_data.values_count = LRF_DATA_NB;
 	proto_data_all.lrf_data = proto_lrf_data;
 
+  // Agent status
+	robosar_fms_AgentStatus proto_agent_status_data;
+	proto_agent_status_data.battery_level = battery_level;
+	proto_data_all.agent_status_data = proto_agent_status_data;
+
 	pb_ostream_t stream = pb_ostream_from_buffer(proto_buffer, sizeof(proto_buffer));
 	bool status = pb_encode(&stream, robosar_fms_SensorData_fields, &proto_data_all);
 	size_t proto_msg_length = stream.bytes_written;
