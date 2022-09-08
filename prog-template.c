@@ -543,23 +543,28 @@ struct timeval UDPrecvParseFromServer(int UDP_sockfd, struct sockaddr_in servadd
 	return elapsed_time;
 }
 
+int get_battery_level(){
+  char bat_buffer[100];
+  kh4_battery_status(bat_buffer,dsPic);
+  int battery_level = bat_buffer[3];
+  return battery_level;
+}
+
 void display_battery_status(knet_dev_t *hDev){
-    char bat_buffer[100];
-    kh4_battery_status(bat_buffer,dsPic);
-    int battery_charge = bat_buffer[3];
-    if(battery_charge > 75){
+    int battery_level = get_battery_level();
+    if(battery_level > 75){
         // Green
         kh4_SetRGBLeds(
             0x00, 0x08, 0x00,
             0x00, 0x08, 0x00,
             0x00, 0x08, 0x00, hDev);
-    }else if(battery_charge > 50){
+    }else if(battery_level > 50){
         // Yellow
         kh4_SetRGBLeds(
             0x08, 0x08, 0x00,
             0x08, 0x08, 0x00,
             0x08, 0x08, 0x00, hDev);
-    }else if(battery_charge > 25){
+    }else if(battery_level > 25){
         // Orange
         kh4_SetRGBLeds(
             0x14, 0x04, 0x00,
