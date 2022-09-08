@@ -383,9 +383,9 @@ void UDPsendSensor(int UDP_sockfd, struct sockaddr_in servaddr, long double T, d
 
 	// Accelerometer
 	robosar_fms_Accelerometer proto_accel_data;
-	proto_accel_data.acc_x = velo_cmd.V; // send received lin vel cmd
-	proto_accel_data.acc_y = velo_cmd.W; // send received ang vel cmd
-	proto_accel_data.acc_z = override_flag;
+	proto_accel_data.acc_x = acc_X;
+	proto_accel_data.acc_y = acc_Y;
+	proto_accel_data.acc_z = acc_Z;
 	proto_data_all.accel_data = proto_accel_data;
 
 	// Gyroscope
