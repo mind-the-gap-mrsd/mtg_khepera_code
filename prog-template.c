@@ -13,6 +13,7 @@
 #include <ifaddrs.h>
 #include "robosar.pb.h"
 #include <pb_encode.h>
+#include <pb_decode.h>
 
 
 /** Declaring parameters as global variables
@@ -297,7 +298,33 @@ void getLRF(int LRF_DeviceHandle, long * LRF_Buffer) {
     memcpy(LRF_Buffer, kb_lrf_DistanceData, sizeof(long)*LRF_DATA_NB);
 }
 
+/** --------------------Get camera detections---------------------*/
+void getCamDetections(int fd1, robosar_fms_AllDetections* proto_detections) {
+	uint8_t pipe_buffer[250];	// Buffer for pipe communication
 
+	// Check if any data is available in the pipe
+	int pipe_count = read(fd1, pipe_buffer, sizeof(robosar_fms_AllDetections));
+	if(pipe_count>0) {
+		//printf("Read %d bytes from pipe\n", pipe_count); 
+		
+		// Parse the data
+		pb_istream_t stream = pb_istream_from_buffer(pipe_buffer, pipe_count);
+		bool status = pb_decode_ex(&stream, robosar_fms_AllDetections_fields, proto_detections, PB_DECODE_NULLTERMINATED);
+		if (!status) {
+			printf("Decoding failed: %s	", PB_GET_ERROR(&stream));		
+		}
+		else {
+			//printf("Decoding successful\n");
+			// printf("Number of detections: %d\n", proto_detections.tag_detections_count);
+			// int i;
+			// for(i=0; i<proto_detections.tag_detections_count; i++) {
+			// 	printf("Detection %d \n", proto_detections.tag_detections[i].tag_id);
+			// }
+		}
+
+
+	}
+}
 
 /*-------------------Establish UDP socket communication as client-------------------*/
 void UDP_Client(int * sockfd, struct sockaddr_in * servaddr, struct sockaddr_in * clientaddr) {    
@@ -357,7 +384,9 @@ void UDP_Client(int * sockfd, struct sockaddr_in * servaddr, struct sockaddr_in 
 
 
 /*------------Sending sensor values to UDP server in one big string-------------*/
-void UDPsendSensor(int UDP_sockfd, struct sockaddr_in servaddr, long double T, double acc_X, double acc_Y, double acc_Z, double gyro_X, double gyro_Y, double gyro_Z, unsigned int posL, unsigned int posR, unsigned int spdL, unsigned int spdR, short usValues[], int irValues[], long LRFValues[]) {
+void UDPsendSensor(int UDP_sockfd, struct sockaddr_in servaddr, long double T, double acc_X, double acc_Y, double acc_Z, 
+					double gyro_X, double gyro_Y, double gyro_Z, unsigned int posL, unsigned int posR, unsigned int spdL, 
+					unsigned int spdR, short usValues[], int irValues[], long LRFValues[], robosar_fms_AllDetections proto_detections) {
 	char text[25000];
 	uint8_t proto_buffer[25000];
 	static unsigned long int seq_id = 0;
@@ -439,6 +468,9 @@ void UDPsendSensor(int UDP_sockfd, struct sockaddr_in servaddr, long double T, d
     }
 	proto_lrf_data.values_count = LRF_DATA_NB;
 	proto_data_all.lrf_data = proto_lrf_data;
+
+	// Camera detections
+	proto_data_all.april_detections = proto_detections;
 
 	pb_ostream_t stream = pb_ostream_from_buffer(proto_buffer, sizeof(proto_buffer));
 	bool status = pb_encode(&stream, robosar_fms_SensorData_fields, &proto_data_all);
@@ -710,6 +742,7 @@ int main(int argc, char *argv[]) {
     int obstacles_detected = 0; // number of times obstacles detected near Khepera
     char gyro_Buffer[100]; // Buffer for Gyroscope
     long LRF_Buffer[LRF_DATA_NB]; // Buffer for LIDAR readings
+	robosar_fms_AllDetections proto_detections; // container for camera detections
 
     double acc_X, acc_Y, acc_Z;
     double gyro_X, gyro_Y, gyro_Z;
@@ -729,6 +762,15 @@ int main(int argc, char *argv[]) {
     // For blinking LED
     char led_cnt = 0;
 
+	// Open IPC pipe with fifo
+    char * myfifo = "/tmp/myfifo";
+    // Creating the named file(FIFO)
+    // mkfifo(<pathname>,<permission>)
+    mkfifo(myfifo, 0666);
+	// Open FIFO for Read only
+	int fd1 = open(myfifo, O_RDONLY | O_NONBLOCK);
+
+	printf("Will try to read %d \n", sizeof(robosar_fms_AllDetections));
     while(quitReq == 0) {
 		// Receive linear and angular velocity commands from the server
 		struct timeval time_elapsed_v = UDPrecvParseFromServer(UDP_sockfd, servaddr);
@@ -811,8 +853,12 @@ int main(int argc, char *argv[]) {
             else
                 memset(LRF_Buffer, 0, sizeof(long)*LRF_DATA_NB);
 
+			// Check if any detections from camera
+			getCamDetections(fd1,&proto_detections);
+
     		//TCPsendSensor(new_socket, T, acc_X, acc_Y, acc_Z, gyro_X, gyro_Y, gyro_Z, posL, posR, spdL, spdR, usValues, irValues);
-    		UDPsendSensor(UDP_sockfd, servaddr, 0, acc_X, acc_Y, acc_Z, gyro_X, gyro_Y, gyro_Z, posL, posR, spdL, spdR, usValues, irValues, LRF_Buffer);
+    		UDPsendSensor(UDP_sockfd, servaddr, 0, acc_X, acc_Y, acc_Z, gyro_X, gyro_Y, gyro_Z, 
+							posL, posR, spdL, spdR, usValues, irValues, LRF_Buffer, proto_detections);
     		//printf("Sleeping...\n");
 
             // Display battery status
@@ -847,7 +893,8 @@ int main(int argc, char *argv[]) {
   	// set to regular idle mode!
   	kh4_SetMode(kh4RegIdle, dsPic);
 
-
+	// close pipe
+	close(fd1);
 
  	return 0;  
 }
