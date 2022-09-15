@@ -299,17 +299,19 @@ void getLRF(int LRF_DeviceHandle, long * LRF_Buffer) {
 }
 
 /** --------------------Get camera detections---------------------*/
-void getCamDetections(int fd1, robosar_fms_AllDetections* proto_detections) {
+robosar_fms_AllDetections getCamDetections(int fd1) {
 	uint8_t pipe_buffer[250];	// Buffer for pipe communication
+	robosar_fms_AllDetections proto_detections;
 
 	// Check if any data is available in the pipe
 	int pipe_count = read(fd1, pipe_buffer, sizeof(robosar_fms_AllDetections));
+
 	if(pipe_count>0) {
 		//printf("Read %d bytes from pipe\n", pipe_count); 
 		
 		// Parse the data
 		pb_istream_t stream = pb_istream_from_buffer(pipe_buffer, pipe_count);
-		bool status = pb_decode_ex(&stream, robosar_fms_AllDetections_fields, proto_detections, PB_DECODE_NULLTERMINATED);
+		bool status = pb_decode_ex(&stream, robosar_fms_AllDetections_fields, &proto_detections, PB_DECODE_NULLTERMINATED);
 		if (!status) {
 			printf("Decoding failed: %s	", PB_GET_ERROR(&stream));		
 		}
@@ -324,6 +326,8 @@ void getCamDetections(int fd1, robosar_fms_AllDetections* proto_detections) {
 
 
 	}
+
+	return proto_detections;
 }
 
 /*-------------------Establish UDP socket communication as client-------------------*/
@@ -667,6 +671,14 @@ int main(int argc, char *argv[]) {
 	printf("[RoboSAR] Received arguments are server ip : %s control port: %d feedback port: %d\n",server_ip,control_port,feedback_port);
 	printf("Main loop delay is set to %ld\n",main_loop_delay);
 
+	
+	// Open IPC pipe with fifo (Do this first so that the writer does not crash)
+    char * myfifo = "/tmp/myfifo";
+    // Creating the named file(FIFO)
+    // mkfifo(<pathname>,<permission>)
+    mkfifo(myfifo, 0666);
+	// Open FIFO for Read only
+	int fd1 = open(myfifo, O_RDONLY | O_NONBLOCK);
 
 	/* Initial Template Setup by LinKhepera */
 	int rc;
@@ -742,7 +754,6 @@ int main(int argc, char *argv[]) {
     int obstacles_detected = 0; // number of times obstacles detected near Khepera
     char gyro_Buffer[100]; // Buffer for Gyroscope
     long LRF_Buffer[LRF_DATA_NB]; // Buffer for LIDAR readings
-	robosar_fms_AllDetections proto_detections; // container for camera detections
 
     double acc_X, acc_Y, acc_Z;
     double gyro_X, gyro_Y, gyro_Z;
@@ -762,15 +773,7 @@ int main(int argc, char *argv[]) {
     // For blinking LED
     char led_cnt = 0;
 
-	// Open IPC pipe with fifo
-    char * myfifo = "/tmp/myfifo";
-    // Creating the named file(FIFO)
-    // mkfifo(<pathname>,<permission>)
-    mkfifo(myfifo, 0666);
-	// Open FIFO for Read only
-	int fd1 = open(myfifo, O_RDONLY | O_NONBLOCK);
-
-	printf("Will try to read %d \n", sizeof(robosar_fms_AllDetections));
+	//printf("Will try to read %d \n", sizeof(robosar_fms_AllDetections));
     while(quitReq == 0) {
 		// Receive linear and angular velocity commands from the server
 		struct timeval time_elapsed_v = UDPrecvParseFromServer(UDP_sockfd, servaddr);
@@ -854,7 +857,7 @@ int main(int argc, char *argv[]) {
                 memset(LRF_Buffer, 0, sizeof(long)*LRF_DATA_NB);
 
 			// Check if any detections from camera
-			getCamDetections(fd1,&proto_detections);
+			robosar_fms_AllDetections proto_detections = getCamDetections(fd1);
 
     		//TCPsendSensor(new_socket, T, acc_X, acc_Y, acc_Z, gyro_X, gyro_Y, gyro_Z, posL, posR, spdL, spdR, usValues, irValues);
     		UDPsendSensor(UDP_sockfd, servaddr, 0, acc_X, acc_Y, acc_Z, gyro_X, gyro_Y, gyro_Z, 
