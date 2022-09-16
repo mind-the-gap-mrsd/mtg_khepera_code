@@ -324,7 +324,6 @@ robosar_fms_AllDetections getCamDetections(int fd1) {
 			// }
 		}
 
-
 	}
 
 	return proto_detections;
@@ -754,6 +753,7 @@ int main(int argc, char *argv[]) {
     int obstacles_detected = 0; // number of times obstacles detected near Khepera
     char gyro_Buffer[100]; // Buffer for Gyroscope
     long LRF_Buffer[LRF_DATA_NB]; // Buffer for LIDAR readings
+	robosar_fms_AllDetections proto_detections; // container for camera detections
 
     double acc_X, acc_Y, acc_Z;
     double gyro_X, gyro_Y, gyro_Z;
