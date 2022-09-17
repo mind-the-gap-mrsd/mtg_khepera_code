@@ -301,7 +301,9 @@ void getLRF(int LRF_DeviceHandle, long * LRF_Buffer) {
 /** --------------------Get camera detections---------------------*/
 robosar_fms_AllDetections getCamDetections(int fd1) {
 	uint8_t pipe_buffer[250];	// Buffer for pipe communication
-	robosar_fms_AllDetections proto_detections;
+	robosar_fms_AllDetections proto_detections_;
+	proto_detections_.tag_detections_count = 0;
+	memset(proto_detections_.tag_detections, 0, sizeof(proto_detections_.tag_detections));
 
 	// Check if any data is available in the pipe
 	int pipe_count = read(fd1, pipe_buffer, sizeof(robosar_fms_AllDetections));
@@ -311,7 +313,7 @@ robosar_fms_AllDetections getCamDetections(int fd1) {
 		
 		// Parse the data
 		pb_istream_t stream = pb_istream_from_buffer(pipe_buffer, pipe_count);
-		bool status = pb_decode_ex(&stream, robosar_fms_AllDetections_fields, &proto_detections, PB_DECODE_NULLTERMINATED);
+		bool status = pb_decode_ex(&stream, robosar_fms_AllDetections_fields, &proto_detections_, PB_DECODE_NULLTERMINATED);
 		if (!status) {
 			printf("Decoding failed: %s	", PB_GET_ERROR(&stream));		
 		}
@@ -326,7 +328,9 @@ robosar_fms_AllDetections getCamDetections(int fd1) {
 
 	}
 
-	return proto_detections;
+	//printf("detections: %d\n", proto_detections_.tag_detections_count);
+
+	return proto_detections_;
 }
 
 /*-------------------Establish UDP socket communication as client-------------------*/
@@ -389,7 +393,7 @@ void UDP_Client(int * sockfd, struct sockaddr_in * servaddr, struct sockaddr_in 
 /*------------Sending sensor values to UDP server in one big string-------------*/
 void UDPsendSensor(int UDP_sockfd, struct sockaddr_in servaddr, long double T, double acc_X, double acc_Y, double acc_Z, 
 					double gyro_X, double gyro_Y, double gyro_Z, unsigned int posL, unsigned int posR, unsigned int spdL, 
-					unsigned int spdR, short usValues[], int irValues[], long LRFValues[], robosar_fms_AllDetections proto_detections) {
+					unsigned int spdR, short usValues[], int irValues[], long LRFValues[], robosar_fms_AllDetections detections) {
 	char text[25000];
 	uint8_t proto_buffer[25000];
 	static unsigned long int seq_id = 0;
@@ -473,7 +477,7 @@ void UDPsendSensor(int UDP_sockfd, struct sockaddr_in servaddr, long double T, d
 	proto_data_all.lrf_data = proto_lrf_data;
 
 	// Camera detections
-	proto_data_all.april_detections = proto_detections;
+	proto_data_all.april_detections = detections;
 
 	pb_ostream_t stream = pb_ostream_from_buffer(proto_buffer, sizeof(proto_buffer));
 	bool status = pb_encode(&stream, robosar_fms_SensorData_fields, &proto_data_all);
@@ -753,7 +757,6 @@ int main(int argc, char *argv[]) {
     int obstacles_detected = 0; // number of times obstacles detected near Khepera
     char gyro_Buffer[100]; // Buffer for Gyroscope
     long LRF_Buffer[LRF_DATA_NB]; // Buffer for LIDAR readings
-	robosar_fms_AllDetections proto_detections; // container for camera detections
 
     double acc_X, acc_Y, acc_Z;
     double gyro_X, gyro_Y, gyro_Z;
@@ -871,7 +874,7 @@ int main(int argc, char *argv[]) {
   	}	
 
 
-  	// Close UDP scoket
+  	// Close UDP socket
   	close(UDP_sockfd);
 
     // Close the lrf device
