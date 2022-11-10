@@ -393,7 +393,7 @@ void UDP_Client(int * sockfd, struct sockaddr_in * servaddr, struct sockaddr_in 
 /*------------Sending sensor values to UDP server in one big string-------------*/
 void UDPsendSensor(int UDP_sockfd, struct sockaddr_in servaddr, long double T, double acc_X, double acc_Y, double acc_Z, 
 					double gyro_X, double gyro_Y, double gyro_Z, unsigned int posL, unsigned int posR, unsigned int spdL, 
-					unsigned int spdR, short usValues[], int irValues[], long LRFValues[], robosar_fms_AllDetections detections) {
+					unsigned int spdR, short usValues[], int irValues[], long LRFValues[], int battery_level, robosar_fms_AllDetections detections) {
 	char text[25000];
 	uint8_t proto_buffer[25000];
 	static unsigned long int seq_id = 0;
@@ -419,9 +419,9 @@ void UDPsendSensor(int UDP_sockfd, struct sockaddr_in servaddr, long double T, d
 
 	// Accelerometer
 	robosar_fms_Accelerometer proto_accel_data;
-	proto_accel_data.acc_x = velo_cmd.V; // send received lin vel cmd
-	proto_accel_data.acc_y = velo_cmd.W; // send received ang vel cmd
-	proto_accel_data.acc_z = override_flag;
+	proto_accel_data.acc_x = acc_X;
+	proto_accel_data.acc_y = acc_Y;
+	proto_accel_data.acc_z = acc_Z;
 	proto_data_all.accel_data = proto_accel_data;
 
 	// Gyroscope
@@ -475,6 +475,11 @@ void UDPsendSensor(int UDP_sockfd, struct sockaddr_in servaddr, long double T, d
     }
 	proto_lrf_data.values_count = LRF_DATA_NB;
 	proto_data_all.lrf_data = proto_lrf_data;
+
+  // Agent status
+	robosar_fms_AgentStatus proto_agent_status_data;
+	proto_agent_status_data.battery_level = battery_level;
+	proto_data_all.agent_status_data = proto_agent_status_data;
 
 	// Camera detections
 	proto_data_all.april_detections = detections;
@@ -582,23 +587,28 @@ struct timeval UDPrecvParseFromServer(int UDP_sockfd, struct sockaddr_in servadd
 	return elapsed_time;
 }
 
+void get_battery_level(int *bat_lvl){
+  char bat_buffer[100];
+  kh4_battery_status(bat_buffer,dsPic);
+  *bat_lvl = bat_buffer[3];
+}
+
 void display_battery_status(knet_dev_t *hDev){
-    char bat_buffer[100];
-    kh4_battery_status(bat_buffer,dsPic);
-    int battery_charge = bat_buffer[3];
-    if(battery_charge > 75){
+    int bat_lvl;
+    get_battery_level(&bat_lvl);
+    if(bat_lvl > 75){
         // Green
         kh4_SetRGBLeds(
             0x00, 0x08, 0x00,
             0x00, 0x08, 0x00,
             0x00, 0x08, 0x00, hDev);
-    }else if(battery_charge > 50){
+    }else if(bat_lvl > 50){
         // Yellow
         kh4_SetRGBLeds(
             0x08, 0x08, 0x00,
             0x08, 0x08, 0x00,
             0x08, 0x08, 0x00, hDev);
-    }else if(battery_charge > 25){
+    }else if(bat_lvl > 25){
         // Orange
         kh4_SetRGBLeds(
             0x14, 0x04, 0x00,
@@ -767,6 +777,7 @@ int main(int argc, char *argv[]) {
 
     unsigned int posL, posR;
     unsigned int spdL, spdR;
+    int battery_level;
 
 
     // Variables for time stamps
@@ -861,13 +872,15 @@ int main(int argc, char *argv[]) {
                 getLRF(LRF_DeviceHandle, LRF_Buffer);
             else
                 memset(LRF_Buffer, 0, sizeof(long)*LRF_DATA_NB);
+        
+        get_battery_level(&battery_level);
 
 			// Check if any detections from camera
 			robosar_fms_AllDetections proto_detections = getCamDetections(fd1);
 
     		//TCPsendSensor(new_socket, T, acc_X, acc_Y, acc_Z, gyro_X, gyro_Y, gyro_Z, posL, posR, spdL, spdR, usValues, irValues);
     		UDPsendSensor(UDP_sockfd, servaddr, 0, acc_X, acc_Y, acc_Z, gyro_X, gyro_Y, gyro_Z, 
-							posL, posR, spdL, spdR, usValues, irValues, LRF_Buffer, proto_detections);
+							posL, posR, spdL, spdR, usValues, irValues, LRF_Buffer, battery_level, proto_detections);
     		//printf("Sleeping...\n");
 
             // Display battery status
