@@ -724,8 +724,12 @@ int main(int argc, char *argv[]) {
   	// Setting the term mode to 1 will return the pressed key immediately!
   	kb_change_term_mode(1);
 
-  	// Set to Normal Motor Control Mode
-  	kh4_SetMode(kh4RegSpeed,dsPic);
+  	// Set to Speed Profile Motor Control Mode
+  	kh4_SetMode(kh4RegSpeedProfile,dsPic);
+    kh4_SetSpeedProfile(10, 0, 20, 20, 700 ,dsPic);
+
+    // Adjust PID
+    // kh4_ConfigurePID(10, 5, 1, dsPic);
   
   	// Reset Encoders
   	kh4_ResetEncoders(dsPic);
@@ -816,7 +820,6 @@ int main(int argc, char *argv[]) {
         while(collision_detection(ir_Buffer, irValues, &obstacles_detected)){
             if(obstacles_detected > obstacleNumThreshold){
                 velo_cmd.V = (velo_cmd.V > 0) ? 0.00 : velo_cmd.V;
-                velo_cmd.W = 0.00;
                 override_flag = 1.0;
                 kh4_SetRGBLeds(
                     0xFF, 0x00, 0xFF,
