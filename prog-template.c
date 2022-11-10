@@ -809,7 +809,6 @@ int main(int argc, char *argv[]) {
         while(collision_detection(ir_Buffer, irValues, &obstacles_detected)){
             if(obstacles_detected > obstacleNumThreshold){
                 velo_cmd.V = (velo_cmd.V > 0) ? 0.00 : velo_cmd.V;
-                velo_cmd.W = 0.00;
                 override_flag = 1.0;
                 kh4_SetRGBLeds(
                     0xFF, 0x00, 0xFF,
