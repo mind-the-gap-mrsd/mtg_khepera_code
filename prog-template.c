@@ -300,7 +300,7 @@ void getLRF(int LRF_DeviceHandle, long * LRF_Buffer) {
 
 /** --------------------Get camera detections---------------------*/
 robosar_fms_AllDetections getCamDetections(int fd1, int *apriltag_detected) {
-	uint8_t pipe_buffer[250];	// Buffer for pipe communication
+	uint8_t pipe_buffer[25000];	// Buffer for pipe communication
 	robosar_fms_AllDetections proto_detections_;
 	proto_detections_.tag_detections_count = 0;
 	*apriltag_detected = 0;
