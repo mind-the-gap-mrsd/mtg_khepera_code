@@ -324,6 +324,7 @@ robosar_fms_AllDetections getCamDetections(int fd1, int *apriltag_detected) {
 			// for(i=0; i<proto_detections.tag_detections_count; i++) {
 			// 	printf("Detection %d \n", proto_detections.tag_detections[i].tag_id);
 			// }
+			*apriltag_detected = 1;
 		}
 
 	}
