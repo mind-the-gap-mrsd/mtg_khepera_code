@@ -298,6 +298,22 @@ void getLRF(int LRF_DeviceHandle, long * LRF_Buffer) {
     memcpy(LRF_Buffer, kb_lrf_DistanceData, sizeof(long)*LRF_DATA_NB);
 }
 
+bool LRFFailure(long * LRF_Buffer){
+  // Check if any values in LRF is abnormally high, indicating failure
+  // Max range is 5.6m, in mm, so max is 5.6*1000 = 5600
+  // Give buffer, say values above 10000 are invalid
+  int idx;
+  bool is_all_zero = true;
+  for(idx = 0; idx < LRF_DATA_NB; idx++)
+  {
+    if(LRF_Buffer[idx] > 10000)
+      return true;
+    else if(LRF_Buffer[idx] > 0)
+      is_all_zero = false;
+  }
+  return is_all_zero;
+}
+
 /** --------------------Get camera detections---------------------*/
 robosar_fms_AllDetections getCamDetections(int fd1, int *apriltag_detected) {
 	uint8_t pipe_buffer[25000];	// Buffer for pipe communication
@@ -875,6 +891,45 @@ int main(int argc, char *argv[]) {
                 getLRF(LRF_DeviceHandle, LRF_Buffer);
             else
                 memset(LRF_Buffer, 0, sizeof(long)*LRF_DATA_NB);
+        // Check for LRF failure
+        if(LRFFailure(LRF_Buffer))
+        {
+            Ang_Vel_Control(0, 0); // Stop moving agent
+            bool fixed = false;
+            kh4_SetRGBLeds(
+              0xFF, 0xFF, 0xFF,
+              0xFF, 0xFF, 0xFF,
+              0xFF, 0xFF, 0xFF, dsPic);
+            while(fixed == false)
+            {
+              printf("LRF Failure detected. Resetting...\n");
+              // Close and power off LRF
+              kb_lrf_Close(LRF_DeviceHandle);
+              // Initialize LRF
+              char LRF_device_fix[] = LRF_DEVICE;
+              char LRF_device_id;
+              for(LRF_device_id = '0'; LRF_device_id <= '9'; LRF_device_id++){
+                  LRF_device_fix[strlen(LRF_device_fix)-1] = LRF_device_id;
+                  if ((LRF_DeviceHandle = kb_lrf_Init(LRF_device_fix))<0){
+                      printf("ERRR: port %s could not initialise LRF!\n",LRF_device_fix);
+                      fixed = false;
+                  } else{
+                      printf("SUCC: port %s initialised for LRF!\n",LRF_device_fix);
+                      strncpy(LRF_device_fix, LRF_device, strlen(LRF_device_fix));
+                      // Reread LRF after delay
+                      usleep(1000000);
+                      getLRF(LRF_DeviceHandle, LRF_Buffer);
+                      // Recheck LRF
+                      fixed = !LRFFailure(LRF_Buffer);
+                      break;
+                  }
+              }
+            }
+            kh4_SetRGBLeds(
+              0x00, 0x00, 0x00,
+              0x00, 0x00, 0x00,
+              0x00, 0x00, 0x00, dsPic);
+        }
         
         get_battery_level(&battery_level);
 
