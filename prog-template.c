@@ -299,7 +299,7 @@ void getLRF(int LRF_DeviceHandle, long * LRF_Buffer) {
 }
 
 /** --------------------Get camera detections---------------------*/
-robosar_fms_AllDetections getCamDetections(int fd1) {
+robosar_fms_AllDetections getCamDetections(int fd1, int *apriltag_detected) {
 	uint8_t pipe_buffer[250];	// Buffer for pipe communication
 	robosar_fms_AllDetections proto_detections_;
 	proto_detections_.tag_detections_count = 0;
@@ -778,6 +778,7 @@ int main(int argc, char *argv[]) {
     unsigned int posL, posR;
     unsigned int spdL, spdR;
     int battery_level;
+	int apriltag_detected = 0;
 
 
     // Variables for time stamps
@@ -876,15 +877,24 @@ int main(int argc, char *argv[]) {
         get_battery_level(&battery_level);
 
 			// Check if any detections from camera
-			robosar_fms_AllDetections proto_detections = getCamDetections(fd1);
+			robosar_fms_AllDetections proto_detections = getCamDetections(fd1, &apriltag_detected);
 
     		//TCPsendSensor(new_socket, T, acc_X, acc_Y, acc_Z, gyro_X, gyro_Y, gyro_Z, posL, posR, spdL, spdR, usValues, irValues);
     		UDPsendSensor(UDP_sockfd, servaddr, 0, acc_X, acc_Y, acc_Z, gyro_X, gyro_Y, gyro_Z, 
 							posL, posR, spdL, spdR, usValues, irValues, LRF_Buffer, battery_level, proto_detections);
     		//printf("Sleeping...\n");
-
-            // Display battery status
-            display_battery_status(dsPic);
+			
+			if(apriltag_detected==1) {
+				// Display SKy Blue lights if apriltag detected
+				kh4_SetRGBLeds(
+				0x0, 0xBF, 0xFF,
+				0x0, 0xBF, 0xFF,
+				0x0, 0xBF, 0xFF, dsPic);
+			}
+			else {
+				// Display battery status
+				display_battery_status(dsPic);
+			}            	
 
 		}
   	}	
