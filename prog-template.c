@@ -303,6 +303,7 @@ robosar_fms_AllDetections getCamDetections(int fd1, int *apriltag_detected) {
 	uint8_t pipe_buffer[250];	// Buffer for pipe communication
 	robosar_fms_AllDetections proto_detections_;
 	proto_detections_.tag_detections_count = 0;
+	*apriltag_detected = 0;
 	memset(proto_detections_.tag_detections, 0, sizeof(proto_detections_.tag_detections));
 
 	// Check if any data is available in the pipe
