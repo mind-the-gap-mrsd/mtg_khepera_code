@@ -291,7 +291,7 @@ void getLRF(int LRF_DeviceHandle, long * LRF_Buffer) {
     int result = kb_lrf_GetDistances(LRF_DeviceHandle);
     if(result < 0){
         // Failure
-        printf("\nERROR: Could not read LRF!\n");
+        printf("\nERROR: Could not read LRF! (error: %d)\n", result);
         return;
     }
     // Copy data from global to local buffer
@@ -304,13 +304,20 @@ bool LRFFailure(long * LRF_Buffer){
   // Give buffer, say values above 10000 are invalid
   int idx;
   bool is_all_zero = true;
+  long max_val = -1;
   for(idx = 0; idx < LRF_DATA_NB; idx++)
   {
-    if(LRF_Buffer[idx] > 10000)
+    if(LRF_Buffer[idx] > max_val)
+      max_val = LRF_Buffer[idx];
+    if(LRF_Buffer[idx] > 10000l)
+    {
+      printf("LRF blowup detected; val, orig_val = %ld, %ld\n", LRF_Buffer[idx], kb_lrf_DistanceData[idx]);
       return true;
+    }
     else if(LRF_Buffer[idx] > 0)
       is_all_zero = false;
   }
+  printf("Max val = %ld\n", max_val);
   return is_all_zero;
 }
 
@@ -894,17 +901,19 @@ int main(int argc, char *argv[]) {
         // Check for LRF failure
         if(LRFFailure(LRF_Buffer))
         {
+            printf("LRF failure. Trying to reboot...\n");
             Ang_Vel_Control(0, 0); // Stop moving agent
             bool fixed = false;
             kh4_SetRGBLeds(
               0xFF, 0xFF, 0xFF,
               0xFF, 0xFF, 0xFF,
               0xFF, 0xFF, 0xFF, dsPic);
-            while(fixed == false)
+            while((fixed == false) && (quitReq == 0))
             {
-              printf("LRF Failure detected. Resetting...\n");
+              printf("LRF not fixed. Resetting...\n");
               // Close and power off LRF
               kb_lrf_Close(LRF_DeviceHandle);
+              usleep(5000000);
               // Initialize LRF
               char LRF_device_fix[] = LRF_DEVICE;
               char LRF_device_id;
@@ -917,7 +926,7 @@ int main(int argc, char *argv[]) {
                       printf("SUCC: port %s initialised for LRF!\n",LRF_device_fix);
                       strncpy(LRF_device_fix, LRF_device, strlen(LRF_device_fix));
                       // Reread LRF after delay
-                      usleep(1000000);
+                      usleep(5000000);
                       getLRF(LRF_DeviceHandle, LRF_Buffer);
                       // Recheck LRF
                       fixed = !LRFFailure(LRF_Buffer);
