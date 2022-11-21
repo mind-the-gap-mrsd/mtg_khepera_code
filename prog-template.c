@@ -139,9 +139,6 @@ void Ang_Vel_Control(double ang, double vel) {
 
 	int PL = v2p(left_wheel_speed);
 	int PR = v2p(right_wheel_speed);
-	//printf("\nL encoder input: %d", PL);
-	//printf("\nR encoder input: %d", PR);
-	//printf("\n");
 	kh4_set_speed(PL, PR, dsPic);
 }
 
@@ -171,17 +168,14 @@ void getAcc(char * acc_Buffer, double * acc_X, double * acc_Y, double * acc_Z) {
     int32_t accel_bytes;
 
 	// Acceleration on X axis
-	//printf("\nAcceleration sensor on X axis: ");
 	for (i = 0; i < 10; i++) {
         dval=accel_convert(acc_Buffer[i * 2 + 1], acc_Buffer[i * 2]);
         dmean += dval;
 	}
 
 	*acc_X = dmean / 10.0;
-	//printf(" %5.2f", *acc_X);
 
 	// Acceleration on Y axis
-	//printf("\nAcceleration sensor on Y axis: ");
 
 	dmean = 0;
 
@@ -191,10 +185,8 @@ void getAcc(char * acc_Buffer, double * acc_X, double * acc_Y, double * acc_Z) {
 	}
 
 	*acc_Y = dmean / 10.0;
-	//printf(" %5.2f", *acc_Y);
 
 	// Acceleration on Z axis
-	//printf("\nAcceleration sensor on Z axis: ");
 
 	dmean = 0;
 
@@ -204,8 +196,6 @@ void getAcc(char * acc_Buffer, double * acc_X, double * acc_Y, double * acc_Z) {
 	}
 
 	*acc_Z = dmean / 10.0;
-	//printf(" %5.2f", *acc_Z);
-	//printf("\n");
 }
 
 /*---------------Get Ultrasonic Sensor Readings--------------*/
@@ -214,9 +204,7 @@ void getUS(char * us_Buffer, short * usValues) {
 	int i;
 	for (i = 0; i < 5; i++) {
 		*(usValues + i) = (short)(us_Buffer[i * 2] | us_Buffer[i * 2 + 1] << 8);
-		//printf("\nUltrasonic sensor %d: %d", i + 1, *(usValues + i));
 	}
-	//printf("\n");
 }
 
 /*---------------Get Infrared Sensor Readings--------------*/
@@ -225,9 +213,7 @@ void getIR(char * ir_Buffer, int * irValues) {
 	int i;
 	for(i = 0; i < 12; i++) {
 		*(irValues + i) = (ir_Buffer[i * 2] | ir_Buffer[i * 2 + 1] << 8);
-		//printf("\nInfrared sensor %d: %d", i + 1, *(irValues + i));
 	}
-	//printf("\n");
 }
 
 /*------------------- Get gyroscope readings -------------------*/
@@ -238,51 +224,38 @@ void getGyro(char * gyro_Buffer, double * gyro_X, double * gyro_Y, double * gyro
 	double dmean = 0;
 	double dval;
 	// Angular rate in X axis
-	//printf("\nGyro on X axis: ");
 	for (i = 0; i < 10; i++) {
 		dval = ((short)(gyro_Buffer[i * 2] | gyro_Buffer[ i * 2 + 1] << 8));
 		dmean += dval;
 	}
 	*gyro_X = dmean * KH4_GYRO_DEG_S / 10.0; // KH4_GYRO_DEG_S converts the reading value to deg/s
-	//printf(" %5.2f deg/s", *gyro_X);
 
 	// Angular rate on Y axis
-	//printf("\nGyro on Y axis: ");
 	dmean = 0;
 	for (i = 10; i < 20; i++) {
 		dval = ((short)(gyro_Buffer[i * 2] | gyro_Buffer[ i * 2 + 1] << 8));
 		dmean += dval;
 	}
 	*gyro_Y = dmean * KH4_GYRO_DEG_S / 10.0; // KH4_GYRO_DEG_S convertsthe reading value to deg/s
-	//printf(" %5.2f deg/s", *gyro_Y);
 
 	// Angular rate on Z axis
-	//printf("\nGyro on Z axis: ");
 	dmean = 0;
 	for (i = 20; i < 30; i++) {
 		dval = ((short)(gyro_Buffer[i * 2] | gyro_Buffer[ i * 2 + 1] << 8));
 		dmean += dval;
 	}
 	*gyro_Z = dmean * KH4_GYRO_DEG_S / 10.0; // KH4_GYRO_DEG_S convertsthe reading value to deg/s
-	//printf(" %5.2f deg/s", *gyro_Z);
 
-	//printf("\n");
 }
 
 /*------------------- Get encoder readings -------------------*/
 void getEC(unsigned int * posL, unsigned int * posR) {
 	kh4_get_position(posL, posR, dsPic);
-	//printf("\nEncoder left: %d", *posL);
-	//printf("\nEncoder right: %d", *posR);
-	//printf("\n");
 }
 
 /*------------------- Get encoder speed readings -------------------*/
 void getSPD(unsigned int * spdL, unsigned int * spdR) {
 	kh4_get_speed(spdL, spdR, dsPic);
-	//printf("\nEncoder rotation speed left: %d", *spdL);
-	//printf("\nEncoder rotation speed right: %d", *spdR);
-	//printf("\n");
 }
 
 /*-----------Get LRF readings----------*/
@@ -291,7 +264,6 @@ void getLRF(int LRF_DeviceHandle, long * LRF_Buffer) {
     int result = kb_lrf_GetDistances(LRF_DeviceHandle);
     if(result < 0){
         // Failure
-        printf("\nERROR: Could not read LRF! (error: %d)\n", result);
         return;
     }
     // Copy data from global to local buffer
@@ -311,13 +283,11 @@ bool LRFFailure(long * LRF_Buffer){
       max_val = LRF_Buffer[idx];
     if(LRF_Buffer[idx] > 10000l)
     {
-      printf("LRF blowup detected; val, orig_val = %ld, %ld\n", LRF_Buffer[idx], kb_lrf_DistanceData[idx]);
       return true;
     }
     else if(LRF_Buffer[idx] > 0)
       is_all_zero = false;
   }
-  printf("Max val = %ld\n", max_val);
   return is_all_zero;
 }
 
@@ -333,27 +303,21 @@ robosar_fms_AllDetections getCamDetections(int fd1, int *apriltag_detected) {
 	int pipe_count = read(fd1, pipe_buffer, sizeof(robosar_fms_AllDetections));
 
 	if(pipe_count>0) {
-		//printf("Read %d bytes from pipe\n", pipe_count); 
 		
 		// Parse the data
 		pb_istream_t stream = pb_istream_from_buffer(pipe_buffer, pipe_count);
 		bool status = pb_decode_ex(&stream, robosar_fms_AllDetections_fields, &proto_detections_, PB_DECODE_NULLTERMINATED);
 		if (!status) {
-			printf("Decoding failed: %s	", PB_GET_ERROR(&stream));		
 		}
 		else {
-			//printf("Decoding successful\n");
-			// printf("Number of detections: %d\n", proto_detections.tag_detections_count);
 			// int i;
 			// for(i=0; i<proto_detections.tag_detections_count; i++) {
-			// 	printf("Detection %d \n", proto_detections.tag_detections[i].tag_id);
 			// }
 			*apriltag_detected = 1;
 		}
 
 	}
 
-	//printf("detections: %d\n", proto_detections_.tag_detections_count);
 
 	return proto_detections_;
 }
@@ -383,7 +347,6 @@ void UDP_Client(int * sockfd, struct sockaddr_in * servaddr, struct sockaddr_in 
     //if(inet_pton(AF_INET, "192.168.1.142", &(*servaddr).sin_addr)<=0)  
     if(inet_pton(AF_INET, server_ip, &(*servaddr).sin_addr)<=0)  
     { 
-        printf("\nInvalid address/ Address not supported \n"); 
         return; 
     } 
 
@@ -522,13 +485,10 @@ void UDPsendSensor(int UDP_sockfd, struct sockaddr_in servaddr, long double T, d
 	/* Check for any protobuf encoding errors */
 	if (!status)
 	{
-		printf("Encoding failed: %s\n", PB_GET_ERROR(&stream));
 	}
 	else 
 	{
-		//printf("Sending... %ld\n",proto_msg_length);
 		sendto(UDP_sockfd, proto_buffer, proto_msg_length, MSG_CONFIRM, (const struct sockaddr *) &servaddr, sizeof(servaddr)); 
-		//printf("Send completed.\n");
 	}
 
 }
@@ -674,7 +634,6 @@ int main(int argc, char *argv[]) {
 	/* Check arguments */
 	if(argc<NUM_PARAMETERS+1)
 	{
-		printf("Please enter %d arguments in the format [SERVER_IP] [CONTROL_PORT] [FEEDBACK_PORT] [FEEDBACK_FREQUENCY_HZ] [CONTROL_TIMEOUT_MS] \n",NUM_PARAMETERS);
 		return 0;
 	}
 
@@ -706,8 +665,6 @@ int main(int argc, char *argv[]) {
 		}
 	}
 
-	printf("[RoboSAR] Received arguments are server ip : %s control port: %d feedback port: %d\n",server_ip,control_port,feedback_port);
-	printf("Main loop delay is set to %ld\n",main_loop_delay);
 
 	
 	// Open IPC pipe with fifo (Do this first so that the writer does not crash)
@@ -770,9 +727,7 @@ int main(int argc, char *argv[]) {
     for(LRF_device_id = '0'; LRF_device_id <= '9'; LRF_device_id++){
         LRF_device[strlen(LRF_device)-1] = LRF_device_id;
         if ((LRF_DeviceHandle = kb_lrf_Init(LRF_device))<0){
-            printf("ERRR: port %s could not initialise LRF!\n",LRF_device);
         } else{
-            printf("SUCC: port %s initialised for LRF!\n",LRF_device);
             break;
         }
     }
@@ -817,7 +772,6 @@ int main(int argc, char *argv[]) {
     // For blinking LED
     char led_cnt = 0;
 
-	//printf("Will try to read %d \n", sizeof(robosar_fms_AllDetections));
     while(quitReq == 0) {
 		// Receive linear and angular velocity commands from the server
 		struct timeval time_elapsed_v = UDPrecvParseFromServer(UDP_sockfd, servaddr);
@@ -901,7 +855,6 @@ int main(int argc, char *argv[]) {
         // Check for LRF failure
         if(LRFFailure(LRF_Buffer))
         {
-            printf("LRF failure. Trying to reboot...\n");
             Ang_Vel_Control(0, 0); // Stop moving agent
             bool fixed = false;
             kh4_SetRGBLeds(
@@ -910,7 +863,6 @@ int main(int argc, char *argv[]) {
               0xFF, 0xFF, 0xFF, dsPic);
             while((fixed == false) && (quitReq == 0))
             {
-              printf("LRF not fixed. Resetting...\n");
               // Close and power off LRF
               kb_lrf_Close(LRF_DeviceHandle);
               usleep(5000000);
@@ -920,10 +872,8 @@ int main(int argc, char *argv[]) {
               for(LRF_device_id = '0'; LRF_device_id <= '9'; LRF_device_id++){
                   LRF_device_fix[strlen(LRF_device_fix)-1] = LRF_device_id;
                   if ((LRF_DeviceHandle = kb_lrf_Init(LRF_device_fix))<0){
-                      printf("ERRR: port %s could not initialise LRF!\n",LRF_device_fix);
                       fixed = false;
                   } else{
-                      printf("SUCC: port %s initialised for LRF!\n",LRF_device_fix);
                       strncpy(LRF_device_fix, LRF_device, strlen(LRF_device_fix));
                       // Reread LRF after delay
                       usleep(5000000);
@@ -948,7 +898,6 @@ int main(int argc, char *argv[]) {
     		//TCPsendSensor(new_socket, T, acc_X, acc_Y, acc_Z, gyro_X, gyro_Y, gyro_Z, posL, posR, spdL, spdR, usValues, irValues);
     		UDPsendSensor(UDP_sockfd, servaddr, 0, acc_X, acc_Y, acc_Z, gyro_X, gyro_Y, gyro_Z, 
 							posL, posR, spdL, spdR, usValues, irValues, LRF_Buffer, battery_level, proto_detections);
-    		//printf("Sleeping...\n");
 			
 			if(apriltag_detected==1) {
 				// Display SKy Blue lights if apriltag detected
