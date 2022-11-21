@@ -317,7 +317,6 @@ bool LRFFailure(long * LRF_Buffer){
     else if(LRF_Buffer[idx] > 0)
       is_all_zero = false;
   }
-  printf("Max val = %ld\n", max_val);
   return is_all_zero;
 }
 
