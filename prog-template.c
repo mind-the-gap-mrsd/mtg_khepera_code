@@ -887,7 +887,9 @@ int main(int argc, char *argv[]) {
     		// getGyro(gyro_Buffer, &gyro_X, &gyro_Y, &gyro_Z);
     		
     		// Receive encoder readings
-    		getEC(&posL, &posR);
+    		static unsigned int enc_counter = 0;
+        getEC(&posL, &posR);
+        printf("Encoder vals: %u, %u (%u)\n", posL, posR, enc_counter++);
     		
     		// Receive encoder speed readings
     		// getSPD(&spdL, &spdR);
