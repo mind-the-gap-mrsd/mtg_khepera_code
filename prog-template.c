@@ -271,7 +271,16 @@ void getGyro(char * gyro_Buffer, double * gyro_X, double * gyro_Y, double * gyro
 
 /*------------------- Get encoder readings -------------------*/
 void getEC(unsigned int * posL, unsigned int * posR) {
-	kh4_get_position(posL, posR, dsPic);
+  static unsigned int enc_counter = 0;
+	int result = kh4_get_position(posL, posR, dsPic);
+  if(result < 0)
+  {
+    printf("\n\nERROR: Could not read encoder! %d, %d (%d, %u)\n\n\n", posL, posR, result, enc_counter++);
+  }
+  else
+  {
+    printf("Success: Encoder vals: %d, %d (%d, %u)\n", posL, posR, result, enc_counter++);
+  }
 	//printf("\nEncoder left: %d", *posL);
 	//printf("\nEncoder right: %d", *posR);
 	//printf("\n");
@@ -887,9 +896,7 @@ int main(int argc, char *argv[]) {
     		// getGyro(gyro_Buffer, &gyro_X, &gyro_Y, &gyro_Z);
     		
     		// Receive encoder readings
-    		static unsigned int enc_counter = 0;
         getEC(&posL, &posR);
-        printf("Encoder vals: %u, %u (%u)\n", posL, posR, enc_counter++);
     		
     		// Receive encoder speed readings
     		// getSPD(&spdL, &spdR);
