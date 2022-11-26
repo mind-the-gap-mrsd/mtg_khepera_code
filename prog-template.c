@@ -275,11 +275,11 @@ void getEC(unsigned int * posL, unsigned int * posR) {
 	int result = kh4_get_position(posL, posR, dsPic);
   if(result < 0)
   {
-    printf("\n\nERROR: Could not read encoder! %d, %d (%d, %u)\n\n\n", posL, posR, result, enc_counter++);
+    printf("\n\nERROR: Could not read encoder! %d, %d (%d, %u)\n\n\n", *posL, *posR, result, enc_counter++);
   }
   else
   {
-    printf("Success: Encoder vals: %d, %d (%d, %u)\n", posL, posR, result, enc_counter++);
+    printf("Success: Encoder vals: %d, %d (%d, %u)\n", *posL, *posR, result, enc_counter++);
   }
 	//printf("\nEncoder left: %d", *posL);
 	//printf("\nEncoder right: %d", *posR);
