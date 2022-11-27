@@ -272,7 +272,7 @@ void getGyro(char * gyro_Buffer, double * gyro_X, double * gyro_Y, double * gyro
 /*------------------- Get encoder readings -------------------*/
 void getEC(int * posL, int * posR) {
   // Maximums
-  const float deriv_max = 60000.0;
+  const float deriv_max = 80000.0;
   const int counter_max = 10;
   // Local vars
   static struct timeval last_time;
