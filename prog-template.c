@@ -321,7 +321,7 @@ void getEC(int * posL, int * posR) {
     }
   }
   // Maxed out counter; give up
-  printf("ERROR: Reached retry limit! Keeping old values");
+  printf("ERROR: Reached retry limit (%d)! Keeping old values", counter_max);
   *posL = posL_prev;
   *posR = posR_prev;
 }
