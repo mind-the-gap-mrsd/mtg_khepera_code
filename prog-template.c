@@ -271,21 +271,22 @@ void getGyro(char * gyro_Buffer, double * gyro_X, double * gyro_Y, double * gyro
 
 /*------------------- Get encoder readings -------------------*/
 void getEC(int * posL, int * posR) {
+  // Maximums
   const float deriv_max = 60000.0;
-  const int counter_max = 5;
+  const int counter_max = 10;
+  // Local vars
   static struct timeval last_time;
   int posL_prev = *posL;
   int posR_prev = *posR;
 	int result;
-  bool run = true;
   int counter = 0;
-  while(run)
+  while(counter++ < counter_max)
   {
     result = kh4_get_position(posL, posR, dsPic);
     if(result < 0)
     {
       // Failed to read; try again
-      printf("ERROR: Could not read encoder! Trying again...\n", result);
+      printf("ERROR: Could not read encoders! Trying again...\n", result);
     }
     else
     {
@@ -298,9 +299,9 @@ void getEC(int * posL, int * posR) {
       int deltaL = abs(*posL - posL_prev);
       int deltaR = abs(*posR - posR_prev);
       int delta = (deltaL > deltaR) ? deltaL : deltaR;
-      if(elapsed_time_us == 0)
+      if(elapsed_time_us <= 0)
       {
-        printf("ERROR: Attempted to divide by zero! Trying again...\n");
+        printf("ERROR: Elapsed time is non-positive! Trying again...\n");
       }
       else
       {
@@ -308,18 +309,21 @@ void getEC(int * posL, int * posR) {
         if(deriv > deriv_max)
         {
           // Spike; try again
-          printf("\n\nERROR: Encoder values are suspect (%f > %f)! Trying again...\n\n\n", deriv, deriv_max);
+          printf("ERROR: Encoder values are suspect (%f > %f)! Trying again...\n", deriv, deriv_max);
         }
         else
         {
           // Values are acceptable
           last_time = cur_time;
-          run = false;
-          printf("Success: Encoder vals: %d, %d (%d, %d, %f)\n", *posL, *posR, result, counter, deriv); // TODO: remove
+          return;
         }
       }
     }
   }
+  // Maxed out counter; give up
+  printf("ERROR: Reached retry limit! Keeping old values");
+  *posL = posL_prev;
+  *posR = posR_prev;
 }
 
 /*------------------- Get encoder speed readings -------------------*/
