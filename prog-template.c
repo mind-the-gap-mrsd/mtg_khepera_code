@@ -270,11 +270,60 @@ void getGyro(char * gyro_Buffer, double * gyro_X, double * gyro_Y, double * gyro
 }
 
 /*------------------- Get encoder readings -------------------*/
-void getEC(unsigned int * posL, unsigned int * posR) {
-	kh4_get_position(posL, posR, dsPic);
-	//printf("\nEncoder left: %d", *posL);
-	//printf("\nEncoder right: %d", *posR);
-	//printf("\n");
+void getEC(int * posL, int * posR) {
+  // Maximums
+  const float deriv_max = 80000.0;
+  const int counter_max = 10;
+  // Local vars
+  static struct timeval last_time;
+  int posL_prev = *posL;
+  int posR_prev = *posR;
+  int result;
+  int counter = 0;
+  while(counter++ < counter_max)
+  {
+    result = kh4_get_position(posL, posR, dsPic);
+    if(result < 0)
+    {
+      // Failed to read; try again
+      printf("ERROR: Could not read encoders! Trying again...\n", result);
+    }
+    else
+    {
+      // Accept reading if values are reasonable (no spike in encoder values)
+      // Compute elapsed time
+      struct timeval cur_time;
+      gettimeofday(&cur_time,0x0);
+      long long elapsed_time_us = timeval_diff(NULL, &cur_time, &last_time);
+      // Compute derivative
+      int deltaL = abs(*posL - posL_prev);
+      int deltaR = abs(*posR - posR_prev);
+      int delta = (deltaL > deltaR) ? deltaL : deltaR;
+      if(elapsed_time_us <= 0)
+      {
+        printf("ERROR: Elapsed time is non-positive! Trying again...\n");
+      }
+      else
+      {
+        float deriv = (float)delta / (elapsed_time_us/1000000.0);
+        if(deriv > deriv_max)
+        {
+          // Spike; try again
+          printf("ERROR: Encoder values are suspect (%f > %f)! Trying again...\n", deriv, deriv_max);
+        }
+        else
+        {
+          // Values are acceptable
+          last_time = cur_time;
+          return;
+        }
+      }
+    }
+  }
+  // Maxed out counter; give up
+  printf("ERROR: Reached retry limit (%d)! Keeping old values", counter_max);
+  *posL = posL_prev;
+  *posR = posR_prev;
 }
 
 /*------------------- Get encoder speed readings -------------------*/
@@ -416,7 +465,7 @@ void UDP_Client(int * sockfd, struct sockaddr_in * servaddr, struct sockaddr_in 
 
 /*------------Sending sensor values to UDP server in one big string-------------*/
 void UDPsendSensor(int UDP_sockfd, struct sockaddr_in servaddr, long double T, double acc_X, double acc_Y, double acc_Z, 
-					double gyro_X, double gyro_Y, double gyro_Z, unsigned int posL, unsigned int posR, unsigned int spdL, 
+					double gyro_X, double gyro_Y, double gyro_Z, int posL, int posR, unsigned int spdL, 
 					unsigned int spdR, short usValues[], int irValues[], long LRFValues[], int battery_level, robosar_fms_AllDetections detections) {
 	char text[25000];
 	uint8_t proto_buffer[25000];
@@ -799,7 +848,8 @@ int main(int argc, char *argv[]) {
     double acc_X, acc_Y, acc_Z;
     double gyro_X, gyro_Y, gyro_Z;
 
-    unsigned int posL, posR;
+    int posL = 0;
+	int posR = 0;
     unsigned int spdL, spdR;
     int battery_level;
 	int apriltag_detected = 0;
@@ -887,7 +937,7 @@ int main(int argc, char *argv[]) {
     		// getGyro(gyro_Buffer, &gyro_X, &gyro_Y, &gyro_Z);
     		
     		// Receive encoder readings
-    		getEC(&posL, &posR);
+        getEC(&posL, &posR);
     		
     		// Receive encoder speed readings
     		// getSPD(&spdL, &spdR);
