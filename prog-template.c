@@ -278,7 +278,7 @@ void getEC(int * posL, int * posR) {
   static struct timeval last_time;
   int posL_prev = *posL;
   int posR_prev = *posR;
-	int result;
+  int result;
   int counter = 0;
   while(counter++ < counter_max)
   {
@@ -848,7 +848,8 @@ int main(int argc, char *argv[]) {
     double acc_X, acc_Y, acc_Z;
     double gyro_X, gyro_Y, gyro_Z;
 
-    int posL, posR;
+    int posL = 0;
+	int posR = 0;
     unsigned int spdL, spdR;
     int battery_level;
 	int apriltag_detected = 0;
