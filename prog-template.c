@@ -11,7 +11,7 @@
 #include <arpa/inet.h>
 #include <math.h>
 #include <ifaddrs.h>
-#include "robosar.pb.h"
+#include "mtg.pb.h"
 #include <pb_encode.h>
 #include <pb_decode.h>
 
@@ -370,22 +370,22 @@ bool LRFFailure(long * LRF_Buffer){
 }
 
 /** --------------------Get camera detections---------------------*/
-robosar_fms_AllDetections getCamDetections(int fd1, int *apriltag_detected) {
+mtg_fms_AllDetections getCamDetections(int fd1, int *apriltag_detected) {
 	uint8_t pipe_buffer[25000];	// Buffer for pipe communication
-	robosar_fms_AllDetections proto_detections_;
+	mtg_fms_AllDetections proto_detections_;
 	proto_detections_.tag_detections_count = 0;
 	*apriltag_detected = 0;
 	memset(proto_detections_.tag_detections, 0, sizeof(proto_detections_.tag_detections));
 
 	// Check if any data is available in the pipe
-	int pipe_count = read(fd1, pipe_buffer, sizeof(robosar_fms_AllDetections));
+	int pipe_count = read(fd1, pipe_buffer, sizeof(mtg_fms_AllDetections));
 
 	if(pipe_count>0) {
 		//printf("Read %d bytes from pipe\n", pipe_count); 
 		
 		// Parse the data
 		pb_istream_t stream = pb_istream_from_buffer(pipe_buffer, pipe_count);
-		bool status = pb_decode_ex(&stream, robosar_fms_AllDetections_fields, &proto_detections_, PB_DECODE_NULLTERMINATED);
+		bool status = pb_decode_ex(&stream, mtg_fms_AllDetections_fields, &proto_detections_, PB_DECODE_NULLTERMINATED);
 		if (!status) {
 			printf("Decoding failed: %s	", PB_GET_ERROR(&stream));		
 		}
@@ -466,7 +466,7 @@ void UDP_Client(int * sockfd, struct sockaddr_in * servaddr, struct sockaddr_in 
 /*------------Sending sensor values to UDP server in one big string-------------*/
 void UDPsendSensor(int UDP_sockfd, struct sockaddr_in servaddr, long double T, double acc_X, double acc_Y, double acc_Z, 
 					double gyro_X, double gyro_Y, double gyro_Z, int posL, int posR, unsigned int spdL, 
-					unsigned int spdR, short usValues[], int irValues[], long LRFValues[], int battery_level, robosar_fms_AllDetections detections) {
+					unsigned int spdR, short usValues[], int irValues[], long LRFValues[], int battery_level, mtg_fms_AllDetections detections) {
 	char text[25000];
 	uint8_t proto_buffer[25000];
 	static unsigned long int seq_id = 0;
@@ -478,7 +478,7 @@ void UDPsendSensor(int UDP_sockfd, struct sockaddr_in servaddr, long double T, d
 	// then it gets the second index, [1], which is 2.5
 
 	/** Create empty protobuf messages */
-	robosar_fms_SensorData proto_data_all;	
+	mtg_fms_SensorData proto_data_all;	
 
 	// Time stamp
 	sprintf(text, "T");
@@ -491,32 +491,32 @@ void UDPsendSensor(int UDP_sockfd, struct sockaddr_in servaddr, long double T, d
 	seq_id++;
 
 	// Accelerometer
-	robosar_fms_Accelerometer proto_accel_data;
+	mtg_fms_Accelerometer proto_accel_data;
 	proto_accel_data.acc_x = acc_X;
 	proto_accel_data.acc_y = acc_Y;
 	proto_accel_data.acc_z = acc_Z;
 	proto_data_all.accel_data = proto_accel_data;
 
 	// Gyroscope
-	robosar_fms_Gyroscope proto_gyro_data;
+	mtg_fms_Gyroscope proto_gyro_data;
 	proto_gyro_data.gyro_x = gyro_X;
 	proto_gyro_data.gyro_y = gyro_Y;
 	proto_gyro_data.gyro_z = gyro_Z;
 	proto_data_all.gyro_data = proto_gyro_data;
 
 	// Encoders
-	robosar_fms_Encoder_count proto_enc_count_data;
+	mtg_fms_Encoder_count proto_enc_count_data;
 	proto_enc_count_data.left = posL;
 	proto_enc_count_data.right = posR;
 	proto_data_all.count_data = proto_enc_count_data;
 
-	robosar_fms_Encoder_speed proto_enc_speed_data;
+	mtg_fms_Encoder_speed proto_enc_speed_data;
 	proto_enc_speed_data.left = spdL;
 	proto_enc_speed_data.right = spdR;
 	proto_data_all.speed_data = proto_enc_speed_data;
 
 	// Ultrasonic sensor
-	robosar_fms_Ultrasonic proto_us_data;
+	mtg_fms_Ultrasonic proto_us_data;
 	proto_us_data.sensor_a = usValues[0];
     proto_us_data.sensor_b = usValues[1];
     proto_us_data.sensor_c = usValues[2];
@@ -525,7 +525,7 @@ void UDPsendSensor(int UDP_sockfd, struct sockaddr_in servaddr, long double T, d
 	proto_data_all.us_data = proto_us_data;
 
 	// Infrared sensor
-	robosar_fms_Infrared proto_ir_data;
+	mtg_fms_Infrared proto_ir_data;
 	proto_ir_data.sensor_a = irValues[0];
     proto_ir_data.sensor_b = irValues[1];
     proto_ir_data.sensor_c = irValues[2];
@@ -541,7 +541,7 @@ void UDPsendSensor(int UDP_sockfd, struct sockaddr_in servaddr, long double T, d
 	proto_data_all.ir_data = proto_ir_data;
 
 	 // LRF sensor
-	robosar_fms_LaserScanner proto_lrf_data;
+	mtg_fms_LaserScanner proto_lrf_data;
     int i;
     for(i=0;i<LRF_DATA_NB;i++){
 		proto_lrf_data.values[i] = LRFValues[i];
@@ -550,7 +550,7 @@ void UDPsendSensor(int UDP_sockfd, struct sockaddr_in servaddr, long double T, d
 	proto_data_all.lrf_data = proto_lrf_data;
 
   // Agent status
-	robosar_fms_AgentStatus proto_agent_status_data;
+	mtg_fms_AgentStatus proto_agent_status_data;
 	proto_agent_status_data.battery_level = battery_level;
 	proto_data_all.agent_status_data = proto_agent_status_data;
 
@@ -558,7 +558,7 @@ void UDPsendSensor(int UDP_sockfd, struct sockaddr_in servaddr, long double T, d
 	proto_data_all.april_detections = detections;
 
 	pb_ostream_t stream = pb_ostream_from_buffer(proto_buffer, sizeof(proto_buffer));
-	bool status = pb_encode(&stream, robosar_fms_SensorData_fields, &proto_data_all);
+	bool status = pb_encode(&stream, mtg_fms_SensorData_fields, &proto_data_all);
 	size_t proto_msg_length = stream.bytes_written;
 
 
@@ -754,7 +754,7 @@ int main(int argc, char *argv[]) {
 		}
 	}
 
-	printf("[RoboSAR] Received arguments are server ip : %s control port: %d feedback port: %d\n",server_ip,control_port,feedback_port);
+	printf("[mtg] Received arguments are server ip : %s control port: %d feedback port: %d\n",server_ip,control_port,feedback_port);
 	printf("Main loop delay is set to %ld\n",main_loop_delay);
 
 	
@@ -866,7 +866,7 @@ int main(int argc, char *argv[]) {
     // For blinking LED
     char led_cnt = 0;
 
-	//printf("Will try to read %d \n", sizeof(robosar_fms_AllDetections));
+	//printf("Will try to read %d \n", sizeof(mtg_fms_AllDetections));
     while(quitReq == 0) {
 		// Receive linear and angular velocity commands from the server
 		struct timeval time_elapsed_v = UDPrecvParseFromServer(UDP_sockfd, servaddr);
@@ -992,7 +992,7 @@ int main(int argc, char *argv[]) {
         get_battery_level(&battery_level);
 
 			// Check if any detections from camera
-			robosar_fms_AllDetections proto_detections = getCamDetections(fd1, &apriltag_detected);
+			mtg_fms_AllDetections proto_detections = getCamDetections(fd1, &apriltag_detected);
 
     		//TCPsendSensor(new_socket, T, acc_X, acc_Y, acc_Z, gyro_X, gyro_Y, gyro_Z, posL, posR, spdL, spdR, usValues, irValues);
     		UDPsendSensor(UDP_sockfd, servaddr, 0, acc_X, acc_Y, acc_Z, gyro_X, gyro_Y, gyro_Z, 
