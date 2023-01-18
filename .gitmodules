@@ -1,3 +1,3 @@
 [submodule "nanopb"]
 	path = nanopb
-	url = git@github.com:MRSD-Team-mtg/nanopb.git
+	url = git@github.com:mind-the-gap-mrsd/nanopb.git
