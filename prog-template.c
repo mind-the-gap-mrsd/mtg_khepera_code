@@ -139,8 +139,8 @@ void Ang_Vel_Control(double ang, double vel) {
 
 	int PL = v2p(left_wheel_speed);
 	int PR = v2p(right_wheel_speed);
-	//printf("\nL encoder input: %d", PL);
-	//printf("\nR encoder input: %d", PR);
+	printf("\nL encoder input: %d", PL);
+	printf("\nR encoder input: %d", PR);
 	//printf("\n");
 	kh4_set_speed(PL, PR, dsPic);
 }
@@ -619,6 +619,7 @@ struct timeval UDPrecvParseFromServer(int UDP_sockfd, struct sockaddr_in servadd
 		while (pch != NULL)
 		{
 			recv[i] = atof(pch);
+			printf("Received velocity %d",recv[i]);
 			i++;
 			pch = strtok (NULL, "x");
 		}
@@ -947,7 +948,7 @@ int main(int argc, char *argv[]) {
                 getLRF(LRF_DeviceHandle, LRF_Buffer);
             else
                 memset(LRF_Buffer, 0, sizeof(long)*LRF_DATA_NB);
-        // Check for LRF failure
+        //Check for LRF failure
         if(LRFFailure(LRF_Buffer))
         {
             printf("LRF failure. Trying to reboot...\n");
@@ -957,32 +958,32 @@ int main(int argc, char *argv[]) {
               0xFF, 0xFF, 0xFF,
               0xFF, 0xFF, 0xFF,
               0xFF, 0xFF, 0xFF, dsPic);
-            while((fixed == false) && (quitReq == 0))
-            {
-              printf("LRF not fixed. Resetting...\n");
-              // Close and power off LRF
-              kb_lrf_Close(LRF_DeviceHandle);
-              usleep(5000000);
-              // Initialize LRF
-              char LRF_device_fix[] = LRF_DEVICE;
-              char LRF_device_id;
-              for(LRF_device_id = '0'; LRF_device_id <= '9'; LRF_device_id++){
-                  LRF_device_fix[strlen(LRF_device_fix)-1] = LRF_device_id;
-                  if ((LRF_DeviceHandle = kb_lrf_Init(LRF_device_fix))<0){
-                      printf("ERRR: port %s could not initialise LRF!\n",LRF_device_fix);
-                      fixed = false;
-                  } else{
-                      printf("SUCC: port %s initialised for LRF!\n",LRF_device_fix);
-                      strncpy(LRF_device_fix, LRF_device, strlen(LRF_device_fix));
-                      // Reread LRF after delay
-                      usleep(5000000);
-                      getLRF(LRF_DeviceHandle, LRF_Buffer);
-                      // Recheck LRF
-                      fixed = !LRFFailure(LRF_Buffer);
-                      break;
-                  }
-              }
-            }
+            // while((fixed == false) && (quitReq == 0))
+            // {
+            //   printf("LRF not fixed. Resetting...\n");
+            //   // Close and power off LRF
+            //   kb_lrf_Close(LRF_DeviceHandle);
+            //   usleep(5000000);
+            //   // Initialize LRF
+            //   char LRF_device_fix[] = LRF_DEVICE;
+            //   char LRF_device_id;
+            //   for(LRF_device_id = '0'; LRF_device_id <= '9'; LRF_device_id++){
+            //       LRF_device_fix[strlen(LRF_device_fix)-1] = LRF_device_id;
+            //       if ((LRF_DeviceHandle = kb_lrf_Init(LRF_device_fix))<0){
+            //           printf("ERRR: port %s could not initialise LRF!\n",LRF_device_fix);
+            //           fixed = false;
+            //       } else{
+            //           printf("SUCC: port %s initialised for LRF!\n",LRF_device_fix);
+            //           strncpy(LRF_device_fix, LRF_device, strlen(LRF_device_fix));
+            //           // Reread LRF after delay
+            //           usleep(5000000);
+            //           getLRF(LRF_DeviceHandle, LRF_Buffer);
+            //           // Recheck LRF
+            //           fixed = !LRFFailure(LRF_Buffer);
+            //           break;
+            //       }
+            //   }
+            // }
             kh4_SetRGBLeds(
               0x00, 0x00, 0x00,
               0x00, 0x00, 0x00,
