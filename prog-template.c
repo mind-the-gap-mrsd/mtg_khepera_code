@@ -214,9 +214,9 @@ void getUS(char * us_Buffer, short * usValues) {
 	int i;
 	for (i = 0; i < 5; i++) {
 		*(usValues + i) = (short)(us_Buffer[i * 2] | us_Buffer[i * 2 + 1] << 8);
-		//printf("\nUltrasonic sensor %d: %d", i + 1, *(usValues + i));
+		printf("\nUltrasonic sensor %d: %d", i + 1, *(usValues + i));
 	}
-	//printf("\n");
+	printf("\n");
 }
 
 /*---------------Get Infrared Sensor Readings--------------*/
@@ -225,9 +225,9 @@ void getIR(char * ir_Buffer, int * irValues) {
 	int i;
 	for(i = 0; i < 12; i++) {
 		*(irValues + i) = (ir_Buffer[i * 2] | ir_Buffer[i * 2 + 1] << 8);
-		//printf("\nInfrared sensor %d: %d", i + 1, *(irValues + i));
+		printf("\nInfrared sensor %d: %d", i + 1, *(irValues + i));
 	}
-	//printf("\n");
+	printf("\n");
 }
 
 /*------------------- Get gyroscope readings -------------------*/
@@ -800,7 +800,7 @@ int main(int argc, char *argv[]) {
 
   	// Set to Speed Profile Motor Control Mode
   	kh4_SetMode(kh4RegSpeedProfile,dsPic);
-    kh4_SetSpeedProfile(10, 0, 20, 20, 700 ,dsPic);
+    kh4_SetSpeedProfile(10, 0, 2, 2, 700 ,dsPic);
 
     // Adjust PID
     // kh4_ConfigurePID(10, 5, 1, dsPic);
@@ -893,18 +893,18 @@ int main(int argc, char *argv[]) {
             sprintf(status_str, "Override,timeout;\n");
 		}
         // Check and recheck for override due to imminent collision
-        while(collision_detection(ir_Buffer, irValues, &obstacles_detected)){
-            if(obstacles_detected > obstacleNumThreshold){
-                velo_cmd.V = (velo_cmd.V > 0) ? 0.00 : velo_cmd.V;
-                override_flag = 1.0;
-                kh4_SetRGBLeds(
-                    0xFF, 0x00, 0xFF,
-                    0xFF, 0x00, 0xFF,
-                    0xFF, 0x00, 0xFF, dsPic);
-                sprintf(status_str, "Override,infrared;\n");
-                break;
-            }
-        }
+        // while(collision_detection(ir_Buffer, irValues, &obstacles_detected)){
+        //     if(obstacles_detected > obstacleNumThreshold){
+        //         velo_cmd.V = (velo_cmd.V > 0) ? 0.00 : velo_cmd.V;
+        //         override_flag = 1.0;
+        //         kh4_SetRGBLeds(
+        //             0xFF, 0x00, 0xFF,
+        //             0xFF, 0x00, 0xFF,
+        //             0xFF, 0x00, 0xFF, dsPic);
+        //         sprintf(status_str, "Override,infrared;\n");
+        //         break;
+        //     }
+        // }
         Ang_Vel_Control(velo_cmd.W, velo_cmd.V);
 		// if the velocity is non zero and last received velocity timestamp is mreo than control time out, set v = 0
 		// Update time
@@ -929,10 +929,10 @@ int main(int argc, char *argv[]) {
     		// getAcc(acc_Buffer, &acc_X, &acc_Y, &acc_Z);
 
     		// Receive ultrasonic sensor readings
-    		// getUS(us_Buffer, usValues);
+    		getUS(us_Buffer, usValues);
     		
     		// Receive infrared sensor readings
-    		// getIR(ir_Buffer, irValues);
+    		getIR(ir_Buffer, irValues);
     		
     		// Receive gyroscope readings
     		// getGyro(gyro_Buffer, &gyro_X, &gyro_Y, &gyro_Z);
